@@ -28,6 +28,9 @@
             <li><a href="#learn-branching" class="nav-link" data-section="learn-branching">Branching</a></li>
             <li><a href="#learn-stack" class="nav-link" data-section="learn-stack">Stack &amp; Functions</a></li>
             <li><a href="#learn-idioms" class="nav-link" data-section="learn-idioms">Common Idioms</a></li>
+            <li class="nav-group-label">Analysis</li>
+            <li><a href="#learn-func-analysis" class="nav-link" data-section="learn-func-analysis">Functional Analysis</a></li>
+            <li><a href="#learn-control" class="nav-link" data-section="learn-control">Control Structures</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -1060,6 +1063,244 @@ push arg1
 call function
 add esp, 12     ; Caller cleans up 3 args * 4 bytes = 12</pre>
                 <p>The <code>add esp, N</code> after a CALL removes the pushed arguments. N / 4 = number of arguments pushed.</p>
+            </div>
+        </section>
+
+        <!-- Learn: Functional Analysis -->
+        <section id="learn-func-analysis" class="section">
+            <h1>Functional Analysis</h1>
+            <p>One of the most important RE skills: read a function's assembly and describe what it does in plain terms like <code>f(a, b) = a + b</code>.</p>
+
+            <div class="concept-box">
+                <h3>The Approach</h3>
+                <p>When analyzing a function, work from the <strong>simplest functions first</strong>, then use those to understand more complex ones that call them.</p>
+                <ol>
+                    <li><strong>Identify the prologue/epilogue</strong> to find where the function starts and ends</li>
+                    <li><strong>Count the arguments</strong> by looking at <code>[ebp+8]</code>, <code>[ebp+12]</code>, etc. (or IDA's <code>arg_0</code>, <code>arg_4</code>)</li>
+                    <li><strong>Track the return value</strong> &mdash; it's always in EAX when <code>ret</code> executes</li>
+                    <li><strong>Trace the operations</strong> on the arguments to see what math/logic is performed</li>
+                    <li><strong>Write it as a formula</strong> using the arguments as variables</li>
+                </ol>
+            </div>
+
+            <div class="concept-box">
+                <h3>Example: Simple Multiply Function</h3>
+                <pre class="code-block">Func5:
+  push ebp
+  mov ebp, esp
+  mov eax, [ebp+arg_0]    ; Load first argument (a)
+  imul eax, [ebp+arg_4]   ; Multiply by second argument (b)
+  pop ebp
+  ret                      ; Return value in EAX = a * b</pre>
+                <div class="analysis-box">
+                    <strong>Analysis:</strong>
+                    <ul>
+                        <li>2 arguments: <code>arg_0</code> (a) and <code>arg_4</code> (b)</li>
+                        <li>EAX = a, then EAX = a * b</li>
+                        <li>Returns EAX = a * b</li>
+                    </ul>
+                    <div class="analysis-result">Func5(a, b) = a * b</div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Example: Simple Divide Function</h3>
+                <pre class="code-block">Func4:
+  push ebp
+  mov ebp, esp
+  mov eax, [ebp+arg_0]    ; Load first argument (a)
+  mov edx, 0              ; Zero EDX before DIV
+  div [ebp+arg_4]         ; Unsigned divide by second argument (b)
+  pop ebp
+  ret                      ; Return value in EAX = a / b</pre>
+                <div class="analysis-box">
+                    <strong>Analysis:</strong>
+                    <ul>
+                        <li>2 arguments: a and b</li>
+                        <li>EAX = a / b (unsigned integer division, quotient only)</li>
+                    </ul>
+                    <div class="analysis-result">Func4(a, b) = a / b</div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Example: Function That Calls Other Functions</h3>
+                <p>Once you know what the simple functions do, you can substitute:</p>
+                <pre class="code-block">Func2:
+  push ebp
+  mov ebp, esp
+  sub esp, 16
+  push [ebp+arg_8]         ; Push c (third arg)
+  push [ebp+arg_4]         ; Push b (second arg)
+  call Func4               ; Func4(b, c) = b / c
+  add esp, 8               ; Clean up 2 args
+  mov [ebp+var_4], eax     ; var_4 = b / c
+  mov edx, [ebp+arg_0]     ; EDX = a (first arg)
+  sub edx, eax             ; EDX = a - (b / c)
+  mov eax, edx             ; Return value = a - b/c
+  leave
+  ret</pre>
+                <div class="analysis-box">
+                    <strong>Analysis:</strong>
+                    <ul>
+                        <li>3 arguments: a, b, c</li>
+                        <li>Calls Func4(b, c) which we know returns b / c</li>
+                        <li>Subtracts that result from a</li>
+                    </ul>
+                    <div class="analysis-result">Func2(a, b, c) = a - (b / c)</div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Reading the Calling Convention</h3>
+                <p>Arguments are pushed <strong>right-to-left</strong> in cdecl. So the push order tells you which argument is which:</p>
+                <pre class="code-block">push [ebp+var_8]    ; This becomes arg_2 (third parameter)
+push [ebp+var_C]    ; This becomes arg_1 (second parameter)
+push [ebp+var_14]   ; This becomes arg_0 (first parameter)
+call Func2          ; Func2(var_14, var_C, var_8)</pre>
+                <div class="important-note">The <strong>last value pushed</strong> is the <strong>first argument</strong>. Read the pushes bottom-to-top to get the argument order.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Tracing Through a Caller</h3>
+                <p>Once you have all function definitions, trace the caller by substituting:</p>
+                <pre class="code-block">; Given: Func4(a,b) = a/b, Func5(a,b) = a*b
+
+var_14 = 192, var_10 = 1024, var_C = 256
+
+var_8  = Func5(var_10, var_C)   = 1024 * 256     = 262144
+var_8  = Func2(var_14, var_C, var_8) = 192 - (256 / 262144) = 192 - 0 = 192
+var_4  = Func4(var_8, var_C)    = 192 / 256       = 0
+var_C  = Func5(var_4, var_C)    = 0 * 256         = 0
+...</pre>
+                <p>Track each variable as it gets reassigned. Watch for integer division truncation (192 / 256 = 0, not 0.75).</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Tips</h3>
+                <ul>
+                    <li>Always start with the <strong>simplest/leaf functions</strong> (ones that don't call anything else)</li>
+                    <li>Name your arguments (a, b, c) and write the formula immediately</li>
+                    <li>Use the <strong>Sandbox</strong> to verify individual function behavior with test values</li>
+                    <li>Watch for: integer division truncation, signed vs unsigned operations, and functions that modify multiple variables</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Learn: Control Structures -->
+        <section id="learn-control" class="section">
+            <h1>Control Structures</h1>
+            <p>How high-level constructs like if/else, loops, and switch statements look in assembly.</p>
+
+            <div class="concept-box">
+                <h3>If / Else</h3>
+                <p>An if/else compiles to: compare, conditional jump over the "if" body, then an unconditional jump past the "else" body.</p>
+                <pre class="code-block">; C: if (eax > 10) { ebx = 1; } else { ebx = 2; }
+
+    cmp eax, 10
+    jbe else_branch     ; If eax <= 10, skip to else
+    mov ebx, 1          ; "if" body
+    jmp end_if
+else_branch:
+    mov ebx, 2          ; "else" body
+end_if:</pre>
+                <p>Pattern: <code>CMP</code> &rarr; conditional jump to else &rarr; if-body &rarr; <code>JMP</code> past else &rarr; else-body.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>While Loop</h3>
+                <p>A while loop is a conditional jump back to the top:</p>
+                <pre class="code-block">; C: while (ecx != 0) { eax += ecx; ecx--; }
+
+loop_top:
+    test ecx, ecx       ; Is ECX zero?
+    jz loop_done         ; If zero, exit loop
+    add eax, ecx         ; Loop body
+    dec ecx
+    jmp loop_top         ; Jump back to check
+loop_done:</pre>
+                <p>Pattern: label &rarr; test/compare &rarr; conditional jump out &rarr; body &rarr; <code>JMP</code> back to label.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Do-While Loop</h3>
+                <p>A do-while puts the condition at the bottom (the body always runs at least once):</p>
+                <pre class="code-block">; C: do { eax += ecx; ecx--; } while (ecx != 0);
+
+loop_top:
+    add eax, ecx         ; Loop body (runs first)
+    dec ecx
+    test ecx, ecx
+    jnz loop_top         ; If not zero, loop again</pre>
+                <p>Pattern: label &rarr; body &rarr; test/compare &rarr; conditional jump back to label. This is the most common loop pattern in compiled code because it's more efficient (one jump instead of two).</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>For Loop</h3>
+                <p>A for loop is just a while loop with an initializer and increment:</p>
+                <pre class="code-block">; C: for (ecx = 0; ecx < 10; ecx++) { eax += ecx; }
+
+    mov ecx, 0           ; Initializer
+loop_top:
+    cmp ecx, 10          ; Condition
+    jge loop_done         ; Exit if ecx >= 10
+    add eax, ecx          ; Body
+    inc ecx               ; Increment
+    jmp loop_top
+loop_done:</pre>
+                <p>Compilers often optimize this into a do-while form with the check at the bottom.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Switch Statement (Jump Table)</h3>
+                <p>Small switches compile to if/else chains. Large switches use a <strong>jump table</strong> &mdash; an array of addresses indexed by the switch value:</p>
+                <pre class="code-block">; C: switch(val) { case 0: ...; case 1: ...; case 2: ...; }
+
+    mov eax, [val]
+    sub eax, base_value   ; Normalize (subtract lowest case)
+    cmp eax, max_case     ; Bounds check
+    ja default_case       ; If out of range, go to default
+
+    ; Jump table lookup:
+    movzx edx, byte ptr [table + eax]  ; Load case index from table
+    jmp [jump_targets + edx*4]         ; Jump to the case handler</pre>
+                <div class="important-note">
+                    In IDA, you'll see a <strong>byte array</strong> (the translation table) that maps input values to case indices, and a <strong>pointer array</strong> (the jump table) with the actual case addresses. The input value is used as an index into the byte array, and the result indexes into the jump table.
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>How to Identify Switch Tables in IDA</h3>
+                <ol>
+                    <li>Look for a <code>SUB</code> followed by a <code>CMP</code> + <code>JA</code> (bounds check + default case)</li>
+                    <li>The byte array after that maps input values &rarr; case numbers</li>
+                    <li>The case number indexes into a jump/address table</li>
+                    <li>Each entry in the jump table points to a case handler block</li>
+                </ol>
+                <p>From your worksheet: the input value 0x77 has base subtracted (0x61), giving offset 0x16 = 22 decimal. Looking at index 22 in the byte array gives value 5, meaning it executes case 5 in the jump table.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Recognizing the Pattern</h3>
+                <table class="ref-table">
+                    <tr><th>High-Level</th><th>Assembly Pattern</th></tr>
+                    <tr><td>if/else</td><td><code>CMP</code> &rarr; <code>Jcc</code> &rarr; if-body &rarr; <code>JMP</code> &rarr; else-body</td></tr>
+                    <tr><td>while</td><td>label &rarr; <code>CMP/TEST</code> &rarr; <code>Jcc</code> out &rarr; body &rarr; <code>JMP</code> back</td></tr>
+                    <tr><td>do-while</td><td>label &rarr; body &rarr; <code>CMP/TEST</code> &rarr; <code>Jcc</code> back</td></tr>
+                    <tr><td>for</td><td>init &rarr; label &rarr; <code>CMP</code> &rarr; <code>Jcc</code> out &rarr; body &rarr; inc &rarr; <code>JMP</code> back</td></tr>
+                    <tr><td>switch (small)</td><td>Chain of <code>CMP</code> + <code>JE</code> for each case</td></tr>
+                    <tr><td>switch (large)</td><td><code>SUB</code> + <code>CMP</code> + <code>JA</code> default &rarr; table lookup &rarr; indirect <code>JMP</code></td></tr>
+                </table>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice</h3>
+                <p>Try pasting these into the Sandbox to see the branch patterns in action:</p>
+                <ul>
+                    <li>Load the <strong>"CMP + conditional jump"</strong> example to see if/else</li>
+                    <li>Load the <strong>"Loop (DEC + JNZ)"</strong> example to see a do-while loop</li>
+                    <li>For your worksheet's Control Structures lab, trace which branches are taken by tracking the variable values and flag states at each CMP/TEST</li>
+                </ul>
             </div>
         </section>
 

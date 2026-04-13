@@ -769,6 +769,29 @@ p { margin-bottom: 0.7rem; }
 .flag-col ul { font-size: 0.82rem; color: var(--text-dim); margin-left: 1.1rem; }
 .flag-col li { margin-bottom: 0.2rem; }
 
+/* === Functional Analysis === */
+.analysis-box {
+    background: rgba(63,185,80,0.06);
+    border: 1px solid rgba(63,185,80,0.2);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+}
+.analysis-box strong { color: var(--green); }
+.analysis-box ul { margin: 0.3rem 0 0.5rem 1.2rem; color: var(--text-dim); }
+.analysis-result {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--green);
+    background: var(--bg);
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 0.3rem;
+}
+
 /* === Responsive === */
 @media (max-width: 900px) {
     .sandbox-layout { grid-template-columns: 1fr; }
