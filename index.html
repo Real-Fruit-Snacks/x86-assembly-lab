@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>x86 Assembly Learning Lab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h2>x86 ASM Lab</h2>
+            <p class="subtitle">Learn &amp; Practice</p>
+        </div>
+        <ul id="nav-list">
+            <li><a href="#home" class="nav-link active" data-section="home">Home</a></li>
+            <li><a href="#sandbox" class="nav-link" data-section="sandbox">Sandbox Simulator</a></li>
+            <li class="nav-group-label">Fundamentals</li>
+            <li><a href="#learn-registers" class="nav-link" data-section="learn-registers">Register Map</a></li>
+            <li><a href="#learn-twos-comp" class="nav-link" data-section="learn-twos-comp">Two's Complement</a></li>
+            <li><a href="#learn-flags" class="nav-link" data-section="learn-flags">Flags</a></li>
+            <li><a href="#learn-memory" class="nav-link" data-section="learn-memory">Memory &amp; Data Sizes</a></li>
+            <li class="nav-group-label">Instructions</li>
+            <li><a href="#learn-arithmetic" class="nav-link" data-section="learn-arithmetic">Arithmetic</a></li>
+            <li><a href="#learn-logic" class="nav-link" data-section="learn-logic">Bitwise Logic</a></li>
+            <li><a href="#learn-muldiv" class="nav-link" data-section="learn-muldiv">Multiply &amp; Divide</a></li>
+            <li><a href="#learn-shifts" class="nav-link" data-section="learn-shifts">Shifts</a></li>
+            <li><a href="#learn-branching" class="nav-link" data-section="learn-branching">Branching</a></li>
+            <li><a href="#learn-stack" class="nav-link" data-section="learn-stack">Stack &amp; Functions</a></li>
+            <li><a href="#learn-idioms" class="nav-link" data-section="learn-idioms">Common Idioms</a></li>
+            <li class="nav-group-label">Tools</li>
+            <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
+            <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
+            <li><a href="#bitwise-calc" class="nav-link" data-section="bitwise-calc">Bitwise Calculator</a></li>
+            <li><a href="#endianness" class="nav-link" data-section="endianness">Endianness Guide</a></li>
+        </ul>
+    </nav>
+
+    <button id="sidebar-toggle" aria-label="Toggle sidebar">&#9776;</button>
+
+    <main id="content">
+        <!-- Home -->
+        <section id="home" class="section active">
+            <h1>x86 Assembly Learning Lab</h1>
+            <p class="intro-text">
+                An interactive companion for learning x86 assembly. Use the tools here to understand
+                how instructions work, then apply that knowledge to solve your worksheets on your own.
+            </p>
+            <div class="feature-grid">
+                <div class="feature-card" onclick="navigate('sandbox')">
+                    <div class="feature-icon">&#9654;</div>
+                    <h3>Sandbox Simulator</h3>
+                    <p>Type or paste any assembly instructions and step through them. See exactly how registers change with each instruction.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('learn-arithmetic')">
+                    <div class="feature-icon">&#43;</div>
+                    <h3>Learn Concepts</h3>
+                    <p>Interactive tutorials covering arithmetic, logic, shifts, branching, and stack operations with practice exercises.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('reference')">
+                    <div class="feature-icon">&#128214;</div>
+                    <h3>Instruction Reference</h3>
+                    <p>Quick-lookup guide for every instruction you'll encounter. Plain English explanations with examples.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('number-converter')">
+                    <div class="feature-icon">&#128290;</div>
+                    <h3>Number Tools</h3>
+                    <p>Convert between decimal, hex, and binary. Visualize bitwise operations. Essential for assembly work.</p>
+                </div>
+            </div>
+            <div class="tip-box">
+                <h3>How to use this with your worksheet</h3>
+                <ol>
+                    <li>Read the concept tutorial for the section you're working on (e.g., "Arithmetic" for BasicMath)</li>
+                    <li>Try the practice exercises to make sure you understand the instructions</li>
+                    <li>Work through your worksheet problems on paper</li>
+                    <li>Use the <strong>Sandbox Simulator</strong> to verify your answers &mdash; paste the instructions and step through them</li>
+                    <li>If you get stuck, use the <strong>Instruction Reference</strong> to look up what an instruction does</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Sandbox Simulator -->
+        <section id="sandbox" class="section">
+            <h1>Sandbox Simulator</h1>
+            <p>Type or paste assembly instructions below and step through them to see how registers change.</p>
+
+            <div class="sandbox-layout">
+                <div class="sandbox-left">
+                    <div class="sandbox-input-area">
+                        <div class="sandbox-toolbar">
+                            <span class="toolbar-label">Assembly Code</span>
+                            <div class="sandbox-toolbar-btns">
+                                <select id="sandbox-examples">
+                                    <option value="">Load Example...</option>
+                                    <optgroup label="Data Movement">
+                                        <option value="mov">MOV</option>
+                                        <option value="xchg">XCHG (swap)</option>
+                                        <option value="lea">LEA (address math)</option>
+                                    </optgroup>
+                                    <optgroup label="Arithmetic">
+                                        <option value="add-sub">ADD &amp; SUB</option>
+                                        <option value="inc-dec">INC &amp; DEC</option>
+                                        <option value="neg">NEG (negate)</option>
+                                    </optgroup>
+                                    <optgroup label="Multiply &amp; Divide">
+                                        <option value="mul">MUL (unsigned)</option>
+                                        <option value="imul">IMUL (signed)</option>
+                                        <option value="div">DIV (unsigned)</option>
+                                        <option value="idiv">IDIV + CDQ (signed)</option>
+                                    </optgroup>
+                                    <optgroup label="Bitwise Logic">
+                                        <option value="and">AND (mask bits)</option>
+                                        <option value="or">OR (set bits)</option>
+                                        <option value="xor">XOR (toggle/zero)</option>
+                                        <option value="not">NOT vs NEG</option>
+                                        <option value="test">TEST (check zero)</option>
+                                    </optgroup>
+                                    <optgroup label="Shifts">
+                                        <option value="shl-shr">SHL &amp; SHR</option>
+                                        <option value="sar">SAR vs SHR (signed)</option>
+                                    </optgroup>
+                                    <optgroup label="Branching">
+                                        <option value="cmp-jmp">CMP + conditional jump</option>
+                                        <option value="loop">Loop (DEC + JNZ)</option>
+                                    </optgroup>
+                                    <optgroup label="Stack &amp; Functions">
+                                        <option value="push-pop">PUSH &amp; POP</option>
+                                        <option value="call-ret">CALL &amp; RET</option>
+                                        <option value="stack-frame">Stack frame (prologue/epilogue)</option>
+                                        <option value="ida-style">IDA notation (var_N, arg_N)</option>
+                                    </optgroup>
+                                </select>
+                                <button id="sandbox-load" class="sim-btn">Load</button>
+                            </div>
+                        </div>
+                        <textarea id="sandbox-code" spellcheck="false" placeholder="Type assembly here, one instruction per line.
+
+Examples:
+  mov eax, 10
+  add eax, 5
+  mov ecx, 20
+  sub eax, ecx"></textarea>
+                    </div>
+                    <div class="sandbox-controls">
+                        <button id="sandbox-run-btn" class="sim-btn primary">Load &amp; Reset</button>
+                        <button id="sandbox-step-btn" class="sim-btn" disabled>Step</button>
+                        <button id="sandbox-runall-btn" class="sim-btn" disabled>Run All</button>
+                        <button id="sandbox-reset-btn" class="sim-btn" disabled>Reset</button>
+                        <label class="sandbox-bits-label">
+                            Register size:
+                            <select id="sandbox-bits">
+                                <option value="8">8-bit (AL, BL..)</option>
+                                <option value="16">16-bit (AX, BX..)</option>
+                                <option value="32" selected>32-bit (EAX, EBX..)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <!-- Execution trace -->
+                    <div id="sandbox-trace" class="sandbox-trace"></div>
+                </div>
+                <div class="sandbox-right">
+                    <div id="sandbox-explain" class="sim-explain">
+                        <h4>Getting Started</h4>
+                        <p>Type or paste assembly instructions in the text area, then click <strong>Load &amp; Reset</strong> to begin. Use <strong>Step</strong> to execute one instruction at a time.</p>
+                    </div>
+                    <div class="sim-reg-box">
+                        <div class="sim-reg-header">
+                            <h3>Registers</h3>
+                            <div class="format-toggle">
+                                <button class="format-btn active" data-fmt="dec">DEC</button>
+                                <button class="format-btn" data-fmt="hex">HEX</button>
+                                <button class="format-btn" data-fmt="bin">BIN</button>
+                            </div>
+                        </div>
+                        <div id="sandbox-regs" class="sim-reg-body"></div>
+                    </div>
+                    <div id="sandbox-flags" class="sim-flags-box" style="display:none">
+                        <div class="sim-reg-header"><h3>Flags</h3></div>
+                        <div id="sandbox-flags-body" class="sim-reg-body"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Learn: Register Map -->
+        <section id="learn-registers" class="section">
+            <h1>Register Map</h1>
+            <p>x86 has a small set of general-purpose registers. Understanding how they overlap is essential.</p>
+
+            <div class="concept-box">
+                <h3>The General-Purpose Registers</h3>
+                <p>x86 has 8 general-purpose 32-bit registers. Each has a history and typical (but not mandatory) use:</p>
+                <table class="ref-table">
+                    <tr><th>Register</th><th>Name</th><th>Typical Use</th></tr>
+                    <tr><td><code>EAX</code></td><td>Accumulator</td><td>Return values, MUL/DIV implicit operand</td></tr>
+                    <tr><td><code>EBX</code></td><td>Base</td><td>General purpose (callee-saved)</td></tr>
+                    <tr><td><code>ECX</code></td><td>Counter</td><td>Loop counters, shift counts</td></tr>
+                    <tr><td><code>EDX</code></td><td>Data</td><td>MUL/DIV overflow, I/O ports</td></tr>
+                    <tr><td><code>ESI</code></td><td>Source Index</td><td>String source pointer (callee-saved)</td></tr>
+                    <tr><td><code>EDI</code></td><td>Destination Index</td><td>String dest pointer (callee-saved)</td></tr>
+                    <tr><td><code>EBP</code></td><td>Base Pointer</td><td>Stack frame base (callee-saved)</td></tr>
+                    <tr><td><code>ESP</code></td><td>Stack Pointer</td><td>Top of stack (don't clobber!)</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Complete Sub-Register Map</h3>
+                <p>EAX, EBX, ECX, and EDX each split into 16-bit and 8-bit pieces. These are <strong>not separate registers</strong> &mdash; they are views into the same storage. Writing to a sub-register modifies part of the parent.</p>
+
+                <div class="reg-map-grid">
+                    <!-- EAX -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">EAX</span>
+                            <span class="reg-map-use">Accumulator</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-split">
+                                <div class="reg-seg-16-label">AX</div>
+                                <div class="reg-seg-8-pair">
+                                    <div class="reg-segment ah"><span class="reg-seg-name">AH</span></div>
+                                    <div class="reg-segment al"><span class="reg-seg-name">AL</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- EBX -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">EBX</span>
+                            <span class="reg-map-use">Base</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-split">
+                                <div class="reg-seg-16-label">BX</div>
+                                <div class="reg-seg-8-pair">
+                                    <div class="reg-segment ah"><span class="reg-seg-name">BH</span></div>
+                                    <div class="reg-segment al"><span class="reg-seg-name">BL</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ECX -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">ECX</span>
+                            <span class="reg-map-use">Counter</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-split">
+                                <div class="reg-seg-16-label">CX</div>
+                                <div class="reg-seg-8-pair">
+                                    <div class="reg-segment ah"><span class="reg-seg-name">CH</span></div>
+                                    <div class="reg-segment al"><span class="reg-seg-name">CL</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- EDX -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">EDX</span>
+                            <span class="reg-map-use">Data</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-split">
+                                <div class="reg-seg-16-label">DX</div>
+                                <div class="reg-seg-8-pair">
+                                    <div class="reg-segment ah"><span class="reg-seg-name">DH</span></div>
+                                    <div class="reg-segment al"><span class="reg-seg-name">DL</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reg-map-divider"></div>
+
+                    <!-- ESI -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">ESI</span>
+                            <span class="reg-map-use">Source Index</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-nosplit si"><span class="reg-seg-name">SI</span><span class="reg-seg-name-dim">&nbsp;(16-bit only, no 8-bit access)</span></div>
+                        </div>
+                    </div>
+                    <!-- EDI -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">EDI</span>
+                            <span class="reg-map-use">Dest Index</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-nosplit si"><span class="reg-seg-name">DI</span><span class="reg-seg-name-dim">&nbsp;(16-bit only)</span></div>
+                        </div>
+                    </div>
+                    <!-- EBP -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">EBP</span>
+                            <span class="reg-map-use">Base Pointer</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-nosplit bp"><span class="reg-seg-name">BP</span><span class="reg-seg-name-dim">&nbsp;(16-bit only)</span></div>
+                        </div>
+                    </div>
+                    <!-- ESP -->
+                    <div class="reg-map-row">
+                        <div class="reg-map-label">
+                            <span class="reg-map-name">ESP</span>
+                            <span class="reg-map-use">Stack Pointer</span>
+                        </div>
+                        <div class="reg-bar">
+                            <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
+                            <div class="reg-segment-nosplit sp"><span class="reg-seg-name">SP</span><span class="reg-seg-name-dim">&nbsp;(16-bit only)</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="reg-map-legend">
+                    <div class="reg-map-legend-item"><span class="legend-swatch" style="background:rgba(166,227,161,0.15)"></span> 8-bit low (AL, BL, CL, DL)</div>
+                    <div class="reg-map-legend-item"><span class="legend-swatch" style="background:rgba(250,179,135,0.15)"></span> 8-bit high (AH, BH, CH, DH)</div>
+                    <div class="reg-map-legend-item"><span class="legend-swatch" style="background:rgba(137,180,250,0.12)"></span> 16-bit (AX..DX, SI, DI, BP, SP)</div>
+                    <div class="reg-map-legend-item"><span class="legend-swatch" style="background:rgba(69,71,90,0.3)"></span> Upper 16 bits (no direct access in 32-bit mode)</div>
+                </div>
+
+                <div class="important-note">
+                    Writing to <code>AL</code> changes the low byte of EAX but leaves AH and the upper 16 bits untouched.
+                    Writing to <code>AX</code> changes the low 16 bits but leaves the upper 16 untouched.
+                    ESI, EDI, EBP, ESP have only 16-bit sub-registers (SI, DI, BP, SP) &mdash; no 8-bit access in 32-bit mode.
+                </div>
+                <div class="mini-sim" data-code="mov eax, 0&#10;mov al, 255&#10;mov ah, 1&#10;mov ax, 0">
+                    <div class="mini-sim-header">
+                        <span>Try it: Watch how sub-registers affect EAX</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Special Implicit Uses</h3>
+                <p>Some instructions use specific registers implicitly (you don't name them in the operands):</p>
+                <table class="ref-table">
+                    <tr><th>Instruction</th><th>Implicit Registers</th></tr>
+                    <tr><td><code>MUL / IMUL</code> (1-op)</td><td>EAX (input) &rarr; EDX:EAX (output)</td></tr>
+                    <tr><td><code>DIV / IDIV</code></td><td>EDX:EAX (input) &rarr; EAX (quotient), EDX (remainder)</td></tr>
+                    <tr><td><code>CDQ</code></td><td>EAX (input) &rarr; EDX (sign extension)</td></tr>
+                    <tr><td><code>PUSH / POP</code></td><td>ESP (modified automatically)</td></tr>
+                    <tr><td><code>CALL / RET</code></td><td>ESP (modified), EIP (instruction pointer)</td></tr>
+                    <tr><td><code>LOOP</code></td><td>ECX (decremented each iteration)</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- Learn: Two's Complement -->
+        <section id="learn-twos-comp" class="section">
+            <h1>Two's Complement</h1>
+            <p>How computers represent negative numbers. This is the most important number concept in assembly.</p>
+
+            <div class="concept-box">
+                <h3>The Problem</h3>
+                <p>Registers hold raw bits. There's no "negative sign" &mdash; just 0s and 1s. So how do we represent -5?</p>
+                <p><strong>Two's complement</strong> is the convention: the high bit acts as the sign bit. If it's 1, the number is negative.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>How It Works (8-bit example)</h3>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">+5:</span><span class="bits">0 0 0 0 0 1 0 1</span><span class="bit-val">= 5</span></div>
+                    <div class="bit-row"><span class="bit-label">NOT:</span><span class="bits">1 1 1 1 1 0 1 0</span><span class="bit-val">= 250 (flip all bits)</span></div>
+                    <div class="bit-row result"><span class="bit-label">+1:</span><span class="bits">1 1 1 1 1 0 1 1</span><span class="bit-val">= 251 unsigned, <strong>-5 signed</strong></span></div>
+                </div>
+                <p>To negate: <strong>flip all bits, then add 1</strong>. That's exactly what the <code>NEG</code> instruction does.</p>
+                <p>To go back: flip and add 1 again (the process is its own inverse).</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Range</h3>
+                <table class="ref-table">
+                    <tr><th>Size</th><th>Unsigned Range</th><th>Signed Range</th></tr>
+                    <tr><td>8-bit</td><td>0 to 255</td><td>-128 to 127</td></tr>
+                    <tr><td>16-bit</td><td>0 to 65,535</td><td>-32,768 to 32,767</td></tr>
+                    <tr><td>32-bit</td><td>0 to 4,294,967,295</td><td>-2,147,483,648 to 2,147,483,647</td></tr>
+                </table>
+                <p>The same bits can be <em>interpreted</em> as signed or unsigned. The CPU doesn't care &mdash; it's your instructions (<code>DIV</code> vs <code>IDIV</code>, <code>JA</code> vs <code>JG</code>) that determine the interpretation.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Key Patterns to Memorize</h3>
+                <table class="ref-table">
+                    <tr><th>Pattern (8-bit)</th><th>Unsigned</th><th>Signed</th><th>Note</th></tr>
+                    <tr><td><code>00000000</code></td><td>0</td><td>0</td><td>Zero</td></tr>
+                    <tr><td><code>01111111</code></td><td>127</td><td>+127</td><td>Max positive</td></tr>
+                    <tr><td><code>10000000</code></td><td>128</td><td>-128</td><td>Min negative (sign bit flips!)</td></tr>
+                    <tr><td><code>11111111</code></td><td>255</td><td>-1</td><td>All bits set = -1</td></tr>
+                    <tr><td><code>11111110</code></td><td>254</td><td>-2</td><td></td></tr>
+                    <tr><td><code>11111011</code></td><td>251</td><td>-5</td><td></td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Why Two's Complement?</h3>
+                <p>Because <strong>addition just works</strong>. The CPU uses the same ADD circuit for signed and unsigned numbers:</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">3:</span><span class="bits">0 0 0 0 0 0 1 1</span></div>
+                    <div class="bit-row"><span class="bit-label">-5:</span><span class="bits">1 1 1 1 1 0 1 1</span></div>
+                    <div class="bit-row result"><span class="bit-label">Sum:</span><span class="bits">1 1 1 1 1 1 1 0</span><span class="bit-val">= 254 unsigned = <strong>-2 signed</strong></span></div>
+                </div>
+                <p>3 + (-5) = -2. It works! The carry out of bit 8 is simply discarded.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice</h3>
+                <p>Use the <strong>Number Converter</strong> tool to verify these:</p>
+                <ul>
+                    <li>What is -1 in 32-bit hex? (Should be <code>0xFFFFFFFF</code>)</li>
+                    <li>What is <code>0xFFFFFFFB</code> as a signed decimal? (Should be -5)</li>
+                    <li>What is 128 in signed 8-bit? (Should be -128 &mdash; it overflows!)</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Learn: Flags -->
+        <section id="learn-flags" class="section">
+            <h1>CPU Flags</h1>
+            <p>Flags are single-bit values the CPU sets automatically after most operations. Conditional jumps read them.</p>
+
+            <div class="concept-box">
+                <h3>The Four Key Flags</h3>
+                <table class="ref-table">
+                    <tr><th>Flag</th><th>Name</th><th>Set to 1 when...</th><th>Example</th></tr>
+                    <tr><td><code>ZF</code></td><td>Zero Flag</td><td>Result is exactly 0</td><td><code>sub eax, eax</code> &rarr; ZF=1</td></tr>
+                    <tr><td><code>SF</code></td><td>Sign Flag</td><td>Result's highest bit is 1 (negative if signed)</td><td><code>sub eax, ebx</code> when eax &lt; ebx</td></tr>
+                    <tr><td><code>CF</code></td><td>Carry Flag</td><td>Unsigned overflow/underflow (borrow)</td><td><code>sub 3, 5</code> &rarr; CF=1 (unsigned borrow)</td></tr>
+                    <tr><td><code>OF</code></td><td>Overflow Flag</td><td>Signed overflow (result doesn't fit)</td><td><code>add 127, 1</code> in 8-bit &rarr; OF=1</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Which Instructions Set Flags?</h3>
+                <div class="flag-grid">
+                    <div class="flag-col yes">
+                        <h4>DO set flags</h4>
+                        <ul>
+                            <li><code>ADD, SUB, INC, DEC</code></li>
+                            <li><code>AND, OR, XOR</code></li>
+                            <li><code>NEG, NOT</code></li>
+                            <li><code>CMP</code> (= SUB that discards result)</li>
+                            <li><code>TEST</code> (= AND that discards result)</li>
+                            <li><code>SHL, SHR, SAR</code></li>
+                            <li><code>MUL, IMUL, DIV, IDIV</code></li>
+                        </ul>
+                    </div>
+                    <div class="flag-col no">
+                        <h4>Do NOT set flags</h4>
+                        <ul>
+                            <li><code>MOV</code></li>
+                            <li><code>LEA</code></li>
+                            <li><code>PUSH, POP</code></li>
+                            <li><code>CALL, RET</code></li>
+                            <li><code>XCHG</code></li>
+                            <li><code>CDQ</code></li>
+                            <li><code>NOP</code></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="important-note">This is critical for branching! If you see <code>MOV</code> between a <code>CMP</code> and a <code>JE</code>, the MOV does NOT change the flags &mdash; the jump still uses the flags from the CMP.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>CF vs OF: Unsigned vs Signed Overflow</h3>
+                <p><strong>CF (Carry Flag)</strong> = unsigned arithmetic went out of range.</p>
+                <p><strong>OF (Overflow Flag)</strong> = signed arithmetic went out of range.</p>
+                <p>The CPU sets <em>both</em> flags on every arithmetic operation. Your choice of jump instruction determines which one matters:</p>
+                <table class="ref-table">
+                    <tr><th>Unsigned jumps (use CF)</th><th>Signed jumps (use OF/SF)</th></tr>
+                    <tr><td><code>JA, JAE, JB, JBE</code></td><td><code>JG, JGE, JL, JLE</code></td></tr>
+                    <tr><td>Above / Below</td><td>Greater / Less</td></tr>
+                </table>
+                <p>Memory aid: <strong>A</strong>bove/<strong>B</strong>elow = unsigned. <strong>G</strong>reater/<strong>L</strong>ess = signed.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>How CMP Sets Flags</h3>
+                <p><code>CMP A, B</code> computes <code>A - B</code> internally and sets flags from the result:</p>
+                <table class="ref-table">
+                    <tr><th>Condition</th><th>ZF</th><th>CF</th><th>Jump that fires</th></tr>
+                    <tr><td>A == B</td><td>1</td><td>0</td><td><code>JE / JZ</code></td></tr>
+                    <tr><td>A != B</td><td>0</td><td>?</td><td><code>JNE / JNZ</code></td></tr>
+                    <tr><td>A &lt; B (unsigned)</td><td>0</td><td>1</td><td><code>JB</code></td></tr>
+                    <tr><td>A &le; B (unsigned)</td><td>?</td><td>?</td><td><code>JBE</code> (CF=1 or ZF=1)</td></tr>
+                    <tr><td>A &gt; B (unsigned)</td><td>0</td><td>0</td><td><code>JA</code> (CF=0 and ZF=0)</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- Learn: Memory Addressing & Data Sizes -->
+        <section id="learn-memory" class="section">
+            <h1>Memory Addressing &amp; Data Sizes</h1>
+            <p>Assembly works with raw memory. You need to know how to read addresses and how much data each operation moves.</p>
+
+            <div class="concept-box">
+                <h3>Data Sizes</h3>
+                <table class="ref-table">
+                    <tr><th>Name</th><th>Size</th><th>Registers</th><th>Directive</th></tr>
+                    <tr><td>BYTE</td><td>1 byte (8 bits)</td><td>AL, BL, CL, DL</td><td><code>byte ptr</code></td></tr>
+                    <tr><td>WORD</td><td>2 bytes (16 bits)</td><td>AX, BX, CX, DX</td><td><code>word ptr</code></td></tr>
+                    <tr><td>DWORD</td><td>4 bytes (32 bits)</td><td>EAX, EBX, ECX, EDX</td><td><code>dword ptr</code></td></tr>
+                    <tr><td>QWORD</td><td>8 bytes (64 bits)</td><td>EDX:EAX (pair)</td><td><code>qword ptr</code></td></tr>
+                </table>
+                <p>When you see <code>dword ptr [ebp-8]</code>, it means: access 4 bytes of memory starting at address <code>ebp-8</code>.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Square Brackets = Memory Access</h3>
+                <p>Square brackets <code>[ ]</code> mean "go to this address in memory and read/write there":</p>
+                <ul>
+                    <li><code>mov eax, ebx</code> &mdash; copy the <em>value</em> in EBX to EAX (register to register)</li>
+                    <li><code>mov eax, [ebx]</code> &mdash; go to the address stored in EBX, read 4 bytes from memory, put them in EAX</li>
+                    <li><code>mov [ebx], eax</code> &mdash; write EAX's value to the memory address in EBX</li>
+                </ul>
+                <div class="important-note">No brackets = register value. Brackets = memory at that address. This is the most fundamental distinction in assembly operands.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Common Addressing Modes</h3>
+                <table class="ref-table">
+                    <tr><th>Syntax</th><th>Meaning</th><th>Common Use</th></tr>
+                    <tr><td><code>[ebp-4]</code></td><td>Memory at EBP minus 4</td><td>Local variable</td></tr>
+                    <tr><td><code>[ebp+8]</code></td><td>Memory at EBP plus 8</td><td>Function argument</td></tr>
+                    <tr><td><code>[eax]</code></td><td>Memory at address in EAX</td><td>Pointer dereference</td></tr>
+                    <tr><td><code>[eax+ecx]</code></td><td>Base + index</td><td>Array access</td></tr>
+                    <tr><td><code>[eax+ecx*4]</code></td><td>Base + index * scale</td><td>Array of DWORDs</td></tr>
+                    <tr><td><code>[eax+ecx*4+8]</code></td><td>Base + index * scale + offset</td><td>Struct array member</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>When You See "dword ptr"</h3>
+                <p>The <code>ptr</code> prefix tells the assembler the size of the memory access when it can't be inferred from the registers:</p>
+                <pre class="code-block">mov dword ptr [ebp-8], 45   ; Write 4 bytes (32-bit value 45)
+mov byte ptr [ebp-4], 0xFF  ; Write 1 byte
+mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
+                <p>If a register operand is present, the size is usually inferred: <code>mov [ebp-8], eax</code> is implicitly dword because EAX is 32-bit.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>IDA Stack Variable Notation</h3>
+                <p>In IDA Pro, you'll see named variables instead of raw offsets:</p>
+                <pre class="code-block">[ebp+var_4]   = [ebp-4]    ; IDA names local var at offset -4
+[ebp+var_8]   = [ebp-8]    ; local var at offset -8
+[ebp+arg_0]   = [ebp+8]    ; first function argument
+[ebp+arg_4]   = [ebp+12]   ; second function argument</pre>
+                <p>The "var_" prefix means local variable (negative offset). The "arg_" prefix means function argument (positive offset past saved EBP and return address).</p>
+            </div>
+        </section>
+
+        <!-- Learn: Arithmetic -->
+        <section id="learn-arithmetic" class="section">
+            <h1>Arithmetic Instructions</h1>
+            <p>These are the building blocks. Every assembly program uses these constantly.</p>
+
+            <div class="concept-box">
+                <h3>MOV &mdash; The Foundation</h3>
+                <p><code>MOV dest, src</code> copies a value into a register. The source is unchanged.</p>
+                <p>Think of it like assignment in a programming language: <code>dest = src</code></p>
+                <div class="mini-sim" data-code="mov eax, 42&#10;mov ebx, eax&#10;mov ecx, 100">
+                    <div class="mini-sim-header">
+                        <span>Try it:</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>ADD &amp; SUB</h3>
+                <p><code>ADD dest, src</code> &rarr; <code>dest = dest + src</code></p>
+                <p><code>SUB dest, src</code> &rarr; <code>dest = dest - src</code></p>
+                <p>The result is stored in the <strong>destination</strong> (first operand). The source is unchanged.</p>
+                <div class="important-note">When SUB produces a negative result in an unsigned register, it wraps around (e.g., 5 - 10 in 32-bit = 4294967291, which is -5 in two's complement).</div>
+                <div class="mini-sim" data-code="mov eax, 30&#10;mov ebx, 12&#10;add eax, ebx&#10;sub eax, 20&#10;sub ebx, eax">
+                    <div class="mini-sim-header">
+                        <span>Try it:</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>INC, DEC, NEG</h3>
+                <p><code>INC dest</code> &rarr; <code>dest = dest + 1</code></p>
+                <p><code>DEC dest</code> &rarr; <code>dest = dest - 1</code></p>
+                <p><code>NEG dest</code> &rarr; <code>dest = -dest</code> (two's complement negation: flip bits, add 1)</p>
+                <div class="mini-sim" data-code="mov eax, 7&#10;inc eax&#10;inc eax&#10;dec eax&#10;neg eax">
+                    <div class="mini-sim-header">
+                        <span>Try it: Watch NEG flip the sign</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>XCHG &mdash; Swap</h3>
+                <p><code>XCHG a, b</code> swaps both values simultaneously. No temp register needed.</p>
+                <div class="mini-sim" data-code="mov eax, 100&#10;mov ebx, 200&#10;xchg eax, ebx">
+                    <div class="mini-sim-header">
+                        <span>Try it:</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Challenge</h3>
+                <p>Before looking at the answer, try to predict: after these instructions, what are EAX, EBX, and ECX?</p>
+                <pre class="code-block">mov eax, 15
+mov ebx, 40
+sub ebx, eax
+mov ecx, ebx
+neg ecx
+add eax, ecx</pre>
+                <p>Work it out on paper, then paste it into the <strong>Sandbox</strong> to check!</p>
+            </div>
+        </section>
+
+        <!-- Learn: Bitwise Logic -->
+        <section id="learn-logic" class="section">
+            <h1>Bitwise Logic Instructions</h1>
+            <p>These operate on individual bits. To understand them, you need to think in binary.</p>
+
+            <div class="concept-box">
+                <h3>AND &mdash; Keep only shared bits</h3>
+                <p><code>AND dest, src</code>: A result bit is <strong>1</strong> only if BOTH input bits are 1.</p>
+                <p>Common use: masking out bits. <code>AND al, 0x0F</code> keeps only the lower 4 bits.</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">A:</span><span class="bits">1 0 1 1</span><span class="bit-val">= 11</span></div>
+                    <div class="bit-row"><span class="bit-label">B:</span><span class="bits">1 1 0 1</span><span class="bit-val">= 13</span></div>
+                    <div class="bit-row result"><span class="bit-label">AND:</span><span class="bits">1 0 0 1</span><span class="bit-val">= 9</span></div>
+                </div>
+                <div class="mini-sim" data-code="mov al, 11&#10;mov dl, 13&#10;and al, dl" data-bits="8">
+                    <div class="mini-sim-header">
+                        <span>Try it (8-bit):</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>OR &mdash; Combine bits</h3>
+                <p><code>OR dest, src</code>: A result bit is <strong>1</strong> if EITHER input bit is 1.</p>
+                <p>Common use: setting bits. <code>OR al, 0x80</code> sets the high bit.</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">A:</span><span class="bits">1 0 1 0</span><span class="bit-val">= 10</span></div>
+                    <div class="bit-row"><span class="bit-label">B:</span><span class="bits">0 1 1 0</span><span class="bit-val">= 6</span></div>
+                    <div class="bit-row result"><span class="bit-label">OR:</span><span class="bits">1 1 1 0</span><span class="bit-val">= 14</span></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>XOR &mdash; Toggle bits</h3>
+                <p><code>XOR dest, src</code>: A result bit is <strong>1</strong> if the inputs are DIFFERENT.</p>
+                <p>Key pattern: <code>XOR reg, reg</code> = 0 (fastest way to zero a register).</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">A:</span><span class="bits">1 1 0 1</span><span class="bit-val">= 13</span></div>
+                    <div class="bit-row"><span class="bit-label">B:</span><span class="bits">1 0 1 1</span><span class="bit-val">= 11</span></div>
+                    <div class="bit-row result"><span class="bit-label">XOR:</span><span class="bits">0 1 1 0</span><span class="bit-val">= 6</span></div>
+                </div>
+                <div class="mini-sim" data-code="mov al, 13&#10;mov cl, 11&#10;xor al, cl" data-bits="8">
+                    <div class="mini-sim-header">
+                        <span>Try it (8-bit):</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>NOT &mdash; Flip all bits</h3>
+                <p><code>NOT dest</code>: Flips every bit (0&rarr;1, 1&rarr;0). Also called one's complement.</p>
+                <p>For 8-bit: <code>NOT x = 255 - x</code>. For 32-bit: <code>NOT x = 0xFFFFFFFF - x</code>.</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">A:</span><span class="bits">0 0 0 0 0 0 1 1</span><span class="bit-val">= 3</span></div>
+                    <div class="bit-row result"><span class="bit-label">NOT:</span><span class="bits">1 1 1 1 1 1 0 0</span><span class="bit-val">= 252</span></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>TEST &mdash; AND without storing</h3>
+                <p><code>TEST a, b</code> computes <code>a AND b</code> but throws away the result. Only the <strong>flags</strong> are set.</p>
+                <p>Most common: <code>TEST reg, reg</code> checks if a register is zero (sets ZF=1 if zero).</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Challenge</h3>
+                <p>Work these out in binary on paper, then verify in the Sandbox:</p>
+                <pre class="code-block">mov al, 7
+mov bl, al
+not bl
+xchg bl, al
+xor bl, al</pre>
+                <p>Hint: Write out the binary for each register at each step. Use the <strong>Bitwise Calculator</strong> tool if you need help!</p>
+            </div>
+        </section>
+
+        <!-- Learn: Multiply & Divide -->
+        <section id="learn-muldiv" class="section">
+            <h1>Multiply &amp; Divide</h1>
+            <p>These are trickier because they use implicit registers (EDX:EAX) and have signed/unsigned variants.</p>
+
+            <div class="concept-box">
+                <h3>MUL &mdash; Unsigned Multiply</h3>
+                <p><code>MUL src</code> multiplies EAX by src. The 64-bit result goes into <strong>EDX:EAX</strong>.</p>
+                <ul>
+                    <li><strong>EAX</strong> = low 32 bits of the result</li>
+                    <li><strong>EDX</strong> = high 32 bits (often 0 if the result fits in 32 bits)</li>
+                </ul>
+                <div class="important-note">MUL always clobbers EDX! Even if EDX had a value you cared about, it gets overwritten.</div>
+                <div class="mini-sim" data-code="mov eax, 100&#10;mov ecx, 5&#10;mul ecx">
+                    <div class="mini-sim-header">
+                        <span>Try it: 100 * 5</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>DIV &mdash; Unsigned Divide</h3>
+                <p><code>DIV src</code> divides <strong>EDX:EAX</strong> by src.</p>
+                <ul>
+                    <li><strong>EAX</strong> = quotient (result of division)</li>
+                    <li><strong>EDX</strong> = remainder (modulo)</li>
+                </ul>
+                <div class="important-note">You MUST zero EDX before DIV (unless you intentionally want a 64-bit dividend). Use <code>xor edx, edx</code> or <code>mov edx, 0</code>.</div>
+                <div class="mini-sim" data-code="mov eax, 17&#10;xor edx, edx&#10;mov ecx, 5&#10;div ecx">
+                    <div class="mini-sim-header">
+                        <span>Try it: 17 / 5 = 3 remainder 2</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>IMUL &mdash; Signed Multiply</h3>
+                <p>IMUL has three forms:</p>
+                <ul>
+                    <li><code>IMUL src</code> &mdash; EDX:EAX = EAX * src (one operand, like MUL but signed)</li>
+                    <li><code>IMUL dest, src</code> &mdash; dest = dest * src (two operands)</li>
+                    <li><code>IMUL dest, src, imm</code> &mdash; dest = src * imm (three operands)</li>
+                </ul>
+                <p>The 2- and 3-operand forms do NOT affect EDX.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>IDIV &amp; CDQ &mdash; Signed Divide</h3>
+                <p><code>IDIV src</code> is signed division of EDX:EAX by src.</p>
+                <p><strong>Before IDIV</strong>, use <code>CDQ</code> to sign-extend EAX into EDX:EAX:</p>
+                <ul>
+                    <li>If EAX &ge; 0: EDX becomes 0x00000000</li>
+                    <li>If EAX &lt; 0: EDX becomes 0xFFFFFFFF</li>
+                </ul>
+                <div class="mini-sim" data-code="mov eax, 7168&#10;mov ecx, -65&#10;cdq&#10;idiv ecx">
+                    <div class="mini-sim-header">
+                        <span>Try it: 7168 / (-65)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>16-bit MUL and DIV</h3>
+                <p>When using 16-bit operands (e.g., <code>div cx</code>), the behavior changes:</p>
+                <ul>
+                    <li><code>MUL cx</code>: DX:AX = AX * CX</li>
+                    <li><code>DIV cx</code>: AX = DX:AX / CX, DX = remainder</li>
+                </ul>
+                <p>Notice it uses DX:AX (16-bit halves) instead of EDX:EAX.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Challenge</h3>
+                <p>What are EAX and EDX after this code?</p>
+                <pre class="code-block">mov eax, 252
+mov ecx, 6
+mul ecx
+; Now what's in EAX and EDX?</pre>
+                <p>Remember: MUL puts the full result in EDX:EAX. Does 252 * 6 fit in 32 bits?</p>
+            </div>
+        </section>
+
+        <!-- Learn: Shifts -->
+        <section id="learn-shifts" class="section">
+            <h1>Shift Operations</h1>
+            <p>Shifts move bits left or right. They're closely related to multiplication and division by powers of 2.</p>
+
+            <div class="concept-box">
+                <h3>SHL &mdash; Shift Left</h3>
+                <p><code>SHL dest, count</code>: Shifts all bits left. Zeros fill from the right.</p>
+                <p>Equivalent to: <code>dest = dest * 2^count</code></p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">Before:</span><span class="bits">0 0 0 0 1 0 1 0</span><span class="bit-val">= 10</span></div>
+                    <div class="bit-row result"><span class="bit-label">SHL 2:</span><span class="bits">0 0 1 0 1 0 0 0</span><span class="bit-val">= 40</span></div>
+                </div>
+                <p>10 * 2^2 = 10 * 4 = 40</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>SHR &mdash; Shift Right (Logical)</h3>
+                <p><code>SHR dest, count</code>: Shifts all bits right. Zeros fill from the left.</p>
+                <p>Equivalent to: <code>dest = dest / 2^count</code> (unsigned, rounds down)</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">Before:</span><span class="bits">0 0 1 0 1 0 0 0</span><span class="bit-val">= 40</span></div>
+                    <div class="bit-row result"><span class="bit-label">SHR 3:</span><span class="bits">0 0 0 0 0 1 0 1</span><span class="bit-val">= 5</span></div>
+                </div>
+                <p>40 / 2^3 = 40 / 8 = 5</p>
+                <div class="mini-sim" data-code="mov eax, 1512&#10;shr eax, 3&#10;inc eax&#10;shl eax, 2">
+                    <div class="mini-sim-header">
+                        <span>Try it: SHR then SHL</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>SAR &mdash; Shift Right (Arithmetic)</h3>
+                <p><code>SAR dest, count</code>: Like SHR but preserves the <strong>sign bit</strong>.</p>
+                <p>If the number is negative, ones fill from the left (keeps it negative). This is signed division by 2^count.</p>
+                <div class="important-note">SHR vs SAR matters for negative numbers! SHR treats everything as unsigned. SAR preserves the sign.</div>
+            </div>
+        </section>
+
+        <!-- Learn: Branching -->
+        <section id="learn-branching" class="section">
+            <h1>Branching (Jumps)</h1>
+            <p>Branching lets code make decisions. It works in two steps: set flags, then jump based on flags.</p>
+
+            <div class="concept-box">
+                <h3>Step 1: Set Flags with CMP or TEST</h3>
+                <p><code>CMP a, b</code> computes <code>a - b</code> and sets flags (but doesn't store the result).</p>
+                <p><code>TEST a, b</code> computes <code>a AND b</code> and sets flags (but doesn't store the result).</p>
+                <table class="ref-table">
+                    <tr><th>Flag</th><th>Name</th><th>Set when...</th></tr>
+                    <tr><td><code>ZF</code></td><td>Zero Flag</td><td>Result is zero (a == b for CMP)</td></tr>
+                    <tr><td><code>CF</code></td><td>Carry Flag</td><td>Unsigned borrow/carry occurred (a &lt; b unsigned for CMP)</td></tr>
+                    <tr><td><code>SF</code></td><td>Sign Flag</td><td>Result is negative (high bit is 1)</td></tr>
+                    <tr><td><code>OF</code></td><td>Overflow Flag</td><td>Signed overflow occurred</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Step 2: Conditional Jump</h3>
+                <table class="ref-table">
+                    <tr><th>Instruction</th><th>Condition</th><th>After CMP a, b: jumps if...</th></tr>
+                    <tr><td><code>JE / JZ</code></td><td>ZF = 1</td><td>a == b</td></tr>
+                    <tr><td><code>JNE / JNZ</code></td><td>ZF = 0</td><td>a != b</td></tr>
+                    <tr><td><code>JB / JNAE</code></td><td>CF = 1</td><td>a &lt; b (unsigned)</td></tr>
+                    <tr><td><code>JBE / JNA</code></td><td>CF=1 or ZF=1</td><td>a &le; b (unsigned)</td></tr>
+                    <tr><td><code>JA / JNBE</code></td><td>CF=0 and ZF=0</td><td>a &gt; b (unsigned)</td></tr>
+                    <tr><td><code>JAE / JNB</code></td><td>CF = 0</td><td>a &ge; b (unsigned)</td></tr>
+                    <tr><td><code>JL / JNGE</code></td><td>SF != OF</td><td>a &lt; b (signed)</td></tr>
+                    <tr><td><code>JLE / JNG</code></td><td>ZF=1 or SF!=OF</td><td>a &le; b (signed)</td></tr>
+                    <tr><td><code>JG / JNLE</code></td><td>ZF=0 and SF==OF</td><td>a &gt; b (signed)</td></tr>
+                    <tr><td><code>JMP</code></td><td>Always</td><td>(unconditional)</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Common Pattern: TEST for zero</h3>
+                <p><code>TEST reg, reg</code> followed by <code>JNZ</code> checks if a register is nonzero.</p>
+                <p><code>TEST reg, reg</code> followed by <code>JZ</code> checks if a register is zero.</p>
+                <p>This is because <code>reg AND reg = reg</code>, and ZF is set if the result is 0.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>How to trace branches</h3>
+                <ol>
+                    <li>Track register values up to the CMP/TEST</li>
+                    <li>Determine the flag values from the comparison</li>
+                    <li>Check the jump condition against those flags</li>
+                    <li>If taken: skip to the target label. If not: continue to next line.</li>
+                    <li>Keep tracking registers along whichever path was taken</li>
+                </ol>
+                <p>For your worksheet, write the register values at each step AND mark each jump as "TAKEN" or "NOT TAKEN".</p>
+            </div>
+        </section>
+
+        <!-- Learn: Stack & Functions -->
+        <section id="learn-stack" class="section">
+            <h1>Stack &amp; Functions</h1>
+            <p>The stack is how x86 manages function calls, local variables, and arguments.</p>
+
+            <div class="concept-box">
+                <h3>The Stack Grows Downward</h3>
+                <p>ESP (Stack Pointer) points to the top of the stack. The stack grows toward <strong>lower addresses</strong>.</p>
+                <ul>
+                    <li><code>PUSH val</code>: ESP -= 4, then store val at [ESP]</li>
+                    <li><code>POP dest</code>: Load [ESP] into dest, then ESP += 4</li>
+                </ul>
+                <div class="stack-diagram">
+                    <div class="stack-title">Stack (growing downward)</div>
+                    <div class="stack-entry high"><span class="saddr">Higher addr</span> <span class="sval">...</span></div>
+                    <div class="stack-entry"><span class="saddr">[EBP+12]</span> <span class="sval">arg_2</span> <span class="slabel">3rd argument</span></div>
+                    <div class="stack-entry"><span class="saddr">[EBP+8]</span> <span class="sval">arg_1</span> <span class="slabel">2nd argument (first pushed)</span></div>
+                    <div class="stack-entry ret"><span class="saddr">[EBP+4]</span> <span class="sval">return addr</span> <span class="slabel">CALL pushed this</span></div>
+                    <div class="stack-entry ebp"><span class="saddr">[EBP+0]</span> <span class="sval">old EBP</span> <span class="slabel">saved base pointer &larr; EBP points here</span></div>
+                    <div class="stack-entry local"><span class="saddr">[EBP-4]</span> <span class="sval">local_1</span> <span class="slabel">1st local variable</span></div>
+                    <div class="stack-entry local"><span class="saddr">[EBP-8]</span> <span class="sval">local_2</span> <span class="slabel">2nd local variable</span></div>
+                    <div class="stack-entry esp"><span class="saddr">[ESP]</span> <span class="sval">...</span> <span class="slabel">&larr; ESP points here (top of stack)</span></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Function Prologue &amp; Epilogue</h3>
+                <p>Almost every function starts and ends the same way:</p>
+                <pre class="code-block">; Prologue - set up stack frame
+push ebp          ; Save caller's base pointer
+mov ebp, esp      ; Set up our base pointer
+sub esp, N        ; Allocate N bytes for local variables
+
+; ... function body ...
+
+; Epilogue - clean up
+mov esp, ebp      ; Deallocate locals (or use LEAVE)
+pop ebp           ; Restore caller's base pointer
+ret               ; Return to caller</pre>
+            </div>
+
+            <div class="concept-box">
+                <h3>Reading Stack Offsets</h3>
+                <p>Once you know the prologue pattern, reading stack variables is straightforward:</p>
+                <ul>
+                    <li><code>[ebp-4]</code>, <code>[ebp-8]</code>, etc. = <strong>local variables</strong></li>
+                    <li><code>[ebp+0]</code> = saved old EBP</li>
+                    <li><code>[ebp+4]</code> = return address</li>
+                    <li><code>[ebp+8]</code> = <strong>first argument</strong></li>
+                    <li><code>[ebp+12]</code> = second argument, and so on</li>
+                </ul>
+            </div>
+
+            <div class="concept-box">
+                <h3>CALL and RET</h3>
+                <p><code>CALL func</code>: Pushes the return address (next instruction) onto the stack, then jumps to func.</p>
+                <p><code>RET</code>: Pops the return address from the stack and jumps to it.</p>
+                <p>After a CALL returns, the <strong>caller</strong> cleans up pushed arguments with <code>add esp, N</code> (cdecl convention).</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Tips for Stack Tracing</h3>
+                <ol>
+                    <li>Draw the stack on paper! Label each slot with its address (ebp-4, ebp-8, etc.) and current value.</li>
+                    <li>When a CALL happens, note what was pushed as arguments (right-to-left).</li>
+                    <li>In the called function, map [ebp+8] to the first argument, [ebp+12] to the second, etc.</li>
+                    <li>Track the return value in EAX.</li>
+                    <li>After returning, the caller stores EAX somewhere and cleans up ESP.</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Learn: Common Idioms -->
+        <section id="learn-idioms" class="section">
+            <h1>Common Assembly Idioms</h1>
+            <p>Experienced assembly readers recognize these patterns instantly. Learn them and you'll read code much faster.</p>
+
+            <div class="concept-box">
+                <h3>Zeroing a Register</h3>
+                <pre class="code-block">xor eax, eax    ; EAX = 0 (faster than mov eax, 0)</pre>
+                <p>XOR anything with itself gives 0. Compilers use this because it's 2 bytes vs 5 for <code>mov eax, 0</code>. When you see <code>xor reg, reg</code>, just read it as "reg = 0".</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Test for Zero</h3>
+                <pre class="code-block">test eax, eax   ; Sets ZF=1 if EAX is zero
+jnz not_zero    ; Jump if EAX != 0
+jz  is_zero     ; Jump if EAX == 0</pre>
+                <p><code>TEST reg, reg</code> = "is this register zero?" It ANDs the register with itself (result = the register) and sets ZF. More efficient than <code>cmp eax, 0</code>.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>LEA for Math</h3>
+                <pre class="code-block">lea eax, [ebx+ecx*4+8]  ; EAX = EBX + ECX*4 + 8</pre>
+                <p>LEA computes an address but <strong>doesn't access memory</strong>. Compilers abuse this for math: it can do addition, scaling (x2, x4, x8), and addition of a constant &mdash; all in one instruction, without affecting flags.</p>
+                <pre class="code-block">lea eax, [eax+eax*4]    ; EAX = EAX * 5
+lea eax, [ecx+edx]      ; EAX = ECX + EDX (without modifying ECX or EDX)</pre>
+            </div>
+
+            <div class="concept-box">
+                <h3>CDQ Before IDIV</h3>
+                <pre class="code-block">cdq            ; Sign-extend EAX into EDX:EAX
+idiv ecx       ; Signed divide EDX:EAX by ECX</pre>
+                <p>Always see <code>CDQ</code> right before <code>IDIV</code>. It's required because IDIV divides the 64-bit value EDX:EAX, and CDQ sets EDX correctly based on EAX's sign. Similarly, <code>xor edx, edx</code> before unsigned <code>DIV</code>.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Function Prologue / Epilogue</h3>
+                <pre class="code-block">; Prologue (start of every function)
+push ebp         ; Save caller's frame
+mov ebp, esp     ; Set up our frame
+sub esp, N       ; Allocate local variables
+
+; Epilogue (end of every function)
+mov esp, ebp     ; Deallocate locals (or: leave)
+pop ebp          ; Restore caller's frame
+ret              ; Return</pre>
+                <p>When you see <code>push ebp / mov ebp, esp</code>, you know a function just started. When you see <code>pop ebp / ret</code>, it's ending.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Multiply by Shift</h3>
+                <pre class="code-block">shl eax, 1   ; EAX *= 2
+shl eax, 2   ; EAX *= 4
+shl eax, 3   ; EAX *= 8
+
+shr eax, 1   ; EAX /= 2 (unsigned)
+sar eax, 1   ; EAX /= 2 (signed, preserves sign)</pre>
+                <p>Compilers often replace multiply/divide by powers of 2 with shifts. Faster and equivalent.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Move-and-Test Pattern</h3>
+                <pre class="code-block">mov eax, [ebp-4]   ; Load a value
+test eax, eax      ; Is it zero?
+jz skip            ; If zero, skip ahead</pre>
+                <p>Note: <code>MOV</code> does NOT set flags, so the <code>TEST</code> is needed. You'll see this pattern after loading function return values or struct fields.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Calling Convention Cleanup (cdecl)</h3>
+                <pre class="code-block">push arg3       ; Push arguments right-to-left
+push arg2
+push arg1
+call function
+add esp, 12     ; Caller cleans up 3 args * 4 bytes = 12</pre>
+                <p>The <code>add esp, N</code> after a CALL removes the pushed arguments. N / 4 = number of arguments pushed.</p>
+            </div>
+        </section>
+
+        <!-- Instruction Reference -->
+        <section id="reference" class="section">
+            <h1>x86 Instruction Reference</h1>
+            <p>Quick lookup for all instructions used in the lab manual.</p>
+            <div class="ref-search-bar">
+                <input type="text" id="ref-search" placeholder="Search instructions... (e.g. mov, div, jbe)">
+            </div>
+            <div id="ref-content">
+                <!-- Populated by JS for searchability -->
+            </div>
+        </section>
+
+        <!-- Number Converter -->
+        <section id="number-converter" class="section">
+            <h1>Number Converter</h1>
+            <p>Convert between decimal, hexadecimal, and binary. Essential for assembly work.</p>
+            <div class="converter-box">
+                <div class="converter-controls">
+                    <label>Bit width:
+                        <select id="conv-bits">
+                            <option value="8">8-bit</option>
+                            <option value="16">16-bit</option>
+                            <option value="32" selected>32-bit</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="converter-row">
+                    <label>Signed Decimal:</label>
+                    <input type="text" id="conv-dec" placeholder="e.g. -5 or 255">
+                </div>
+                <div class="converter-row">
+                    <label>Unsigned Decimal:</label>
+                    <input type="text" id="conv-udec" placeholder="e.g. 4294967291">
+                </div>
+                <div class="converter-row">
+                    <label>Hexadecimal:</label>
+                    <input type="text" id="conv-hex" placeholder="e.g. FF or FFFFFFFB">
+                </div>
+                <div class="converter-row">
+                    <label>Binary:</label>
+                    <input type="text" id="conv-bin" placeholder="e.g. 11111111">
+                </div>
+            </div>
+            <div class="concept-box" style="margin-top:1.5rem">
+                <h3>Key Values to Know</h3>
+                <table class="ref-table">
+                    <tr><th>Unsigned</th><th>Signed (8-bit)</th><th>Hex</th><th>Binary</th></tr>
+                    <tr><td>0</td><td>0</td><td>0x00</td><td>00000000</td></tr>
+                    <tr><td>1</td><td>1</td><td>0x01</td><td>00000001</td></tr>
+                    <tr><td>127</td><td>127</td><td>0x7F</td><td>01111111</td></tr>
+                    <tr><td>128</td><td>-128</td><td>0x80</td><td>10000000</td></tr>
+                    <tr><td>255</td><td>-1</td><td>0xFF</td><td>11111111</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- Bitwise Calculator -->
+        <section id="bitwise-calc" class="section">
+            <h1>Bitwise Calculator</h1>
+            <p>Visualize AND, OR, XOR, and NOT operations bit by bit.</p>
+            <div class="bitcalc-box">
+                <div class="bitcalc-row">
+                    <label>Value A:</label>
+                    <input type="text" id="bitcalc-a" placeholder="e.g. 11 or 0x0B" value="11">
+                    <span class="bitcalc-binary" id="bitcalc-a-bin">00001011</span>
+                </div>
+                <div class="bitcalc-row">
+                    <label>Value B:</label>
+                    <input type="text" id="bitcalc-b" placeholder="e.g. 13 or 0x0D" value="13">
+                    <span class="bitcalc-binary" id="bitcalc-b-bin">00001101</span>
+                </div>
+                <div class="bitcalc-row">
+                    <label>Bit width:</label>
+                    <select id="bitcalc-bits">
+                        <option value="8" selected>8-bit</option>
+                        <option value="16">16-bit</option>
+                        <option value="32">32-bit</option>
+                    </select>
+                </div>
+                <div class="bitcalc-results" id="bitcalc-results">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Endianness Guide -->
+        <section id="endianness" class="section">
+            <h1>Endianness Guide</h1>
+            <p>Endianness is about byte order in memory. It trips up everyone at least once.</p>
+
+            <div class="concept-box">
+                <h3>The Core Idea</h3>
+                <p>When you store a multi-byte value (like a 32-bit integer) in memory, the bytes have to go in <em>some</em> order. There are two conventions:</p>
+                <ul>
+                    <li><strong>Little Endian</strong>: Least significant byte goes to the <strong>lowest</strong> address (x86 uses this)</li>
+                    <li><strong>Big Endian</strong>: Most significant byte goes to the <strong>lowest</strong> address (network byte order)</li>
+                </ul>
+                <p>Memory trick: <strong>"Little end first"</strong> &mdash; the little end (low byte) of the number sits at the low address.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Interactive: See the Byte Order</h3>
+                <p>Type any 32-bit hex value and see how it's laid out in memory:</p>
+                <div class="endian-interactive">
+                    <div class="endian-input-row">
+                        <label>Value (hex):</label>
+                        <input type="text" id="endian-val" value="44332211" placeholder="e.g. DEADBEEF" maxlength="8">
+                    </div>
+                    <div class="endian-demo">
+                        <div class="endian-col">
+                            <h4>Little Endian (x86)</h4>
+                            <p>Low byte at low address</p>
+                            <div class="memory-cells" id="endian-le-cells"></div>
+                        </div>
+                        <div class="endian-col">
+                            <h4>Big Endian</h4>
+                            <p>High byte at low address</p>
+                            <div class="memory-cells" id="endian-be-cells"></div>
+                        </div>
+                    </div>
+                    <div id="endian-breakdown" class="endian-breakdown"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Why Does This Matter?</h3>
+                <p>Endianness matters when you <strong>access part of a value</strong> or <strong>read raw memory</strong>:</p>
+                <table class="ref-table">
+                    <tr><th>Situation</th><th>What happens</th></tr>
+                    <tr>
+                        <td>Store a DWORD, read a BYTE</td>
+                        <td>On x86 (little endian), reading the first byte gives you the <strong>low</strong> byte, not the high byte</td>
+                    </tr>
+                    <tr>
+                        <td>Looking at hex dumps</td>
+                        <td>Memory dump shows <code>EF BE AD DE</code> but the actual DWORD value is <code>0xDEADBEEF</code> &mdash; bytes are reversed!</td>
+                    </tr>
+                    <tr>
+                        <td>Network protocols</td>
+                        <td>Network uses big endian. Receiving raw bytes on x86 requires byte-swapping (e.g., <code>ntohs</code>, <code>ntohl</code>)</td>
+                    </tr>
+                    <tr>
+                        <td>Casting pointers</td>
+                        <td><code>*(char*)&amp;myInt</code> gives different bytes on LE vs BE systems</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Worksheet's Endianness Test</h3>
+                <p>Your worksheet has this code that detects endianness. Let's walk through it step by step:</p>
+                <pre class="code-block">mov [ebp+var_4], 1              ; Step 1: Store 0x00000001 as a DWORD
+movsx eax, byte ptr [ebp+var_4] ; Step 2: Read just the FIRST byte
+cmp eax, 1                      ; Step 3: Is that first byte 0x01?
+jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
+                <div class="endian-walkthrough">
+                    <div class="endian-step">
+                        <strong>Step 1:</strong> Store the value <code>1</code> (= <code>0x00000001</code>) at <code>[ebp+var_4]</code>. In memory:
+                        <div class="memory-cells" style="margin:0.4rem 0">
+                            <div class="mem-cell"><span class="addr">var_4</span><span class="val highlight">0x01</span></div>
+                            <div class="mem-cell"><span class="addr">+1</span><span class="val">0x00</span></div>
+                            <div class="mem-cell"><span class="addr">+2</span><span class="val">0x00</span></div>
+                            <div class="mem-cell"><span class="addr">+3</span><span class="val">0x00</span></div>
+                        </div>
+                        Because x86 is <strong>little endian</strong>, the low byte (<code>0x01</code>) is at the lowest address.
+                    </div>
+                    <div class="endian-step">
+                        <strong>Step 2:</strong> <code>movsx eax, byte ptr [ebp+var_4]</code> reads <strong>only the first byte</strong> at that address.
+                        On little endian, the first byte is <code>0x01</code>. So <code>EAX = 1</code>.
+                    </div>
+                    <div class="endian-step">
+                        <strong>Step 3:</strong> <code>cmp eax, 1</code> &mdash; is EAX equal to 1? <strong>Yes!</strong> So ZF = 1.
+                    </div>
+                    <div class="endian-step">
+                        <strong>Step 4:</strong> <code>jnz</code> (jump if not zero) &mdash; ZF = 1, so the jump is <strong>NOT taken</strong>. We fall through to <strong>Endian(A)</strong>.
+                    </div>
+                    <div class="endian-step" style="background:rgba(63,185,80,0.08);border-color:rgba(63,185,80,0.3)">
+                        <strong>Conclusion:</strong> Endian(A) = <strong>Little Endian</strong>. Endian(B) = <strong>Big Endian</strong>.<br>
+                        If it were big endian, the first byte would be <code>0x00</code> (the high byte), EAX would be 0, and JNZ <em>would</em> jump to Endian(B).
+                    </div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Quick Reference</h3>
+                <table class="ref-table">
+                    <tr><th>Value</th><th>Little Endian (x86) Memory</th><th>Big Endian Memory</th></tr>
+                    <tr><td><code>0x00000001</code></td><td><code>01 00 00 00</code></td><td><code>00 00 00 01</code></td></tr>
+                    <tr><td><code>0xDEADBEEF</code></td><td><code>EF BE AD DE</code></td><td><code>DE AD BE EF</code></td></tr>
+                    <tr><td><code>0x12345678</code></td><td><code>78 56 34 12</code></td><td><code>12 34 56 78</code></td></tr>
+                    <tr><td><code>0x0100</code> (16-bit)</td><td><code>00 01</code></td><td><code>01 00</code></td></tr>
+                </table>
+                <p style="margin-top:0.5rem">Notice: in big endian, the memory order matches how we write the hex value. In little endian, the bytes appear "reversed."</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="simulator.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

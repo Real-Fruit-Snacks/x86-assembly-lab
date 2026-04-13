@@ -1,0 +1,933 @@
+// ============================================================
+// App: Navigation, Sandbox, Mini-Sims, Tools
+// ============================================================
+
+// --- Navigation ---
+function navigate(sectionId) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    const section = document.getElementById(sectionId);
+    if (section) section.classList.add('active');
+    const link = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+    if (link) link.classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Nav links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            navigate(link.dataset.section);
+            // Close mobile sidebar
+            document.getElementById('sidebar').classList.remove('open');
+        });
+    });
+
+    // Mobile sidebar toggle
+    document.getElementById('sidebar-toggle').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    // Hash navigation
+    if (window.location.hash) {
+        navigate(window.location.hash.slice(1));
+    }
+
+    initSandbox();
+    initMiniSims();
+    initNumberConverter();
+    initBitwiseCalc();
+    initReference();
+    initEndianness();
+});
+
+// ============================================================
+// SANDBOX SIMULATOR
+// ============================================================
+
+let sandboxSim = new AsmSimulator();
+let sandboxFmt = 'dec';
+let sandboxStepCount = 0;
+const SANDBOX_MAX_STEPS = 10000; // infinite loop protection
+
+function initSandbox() {
+    document.getElementById('sandbox-run-btn').addEventListener('click', () => sandboxLoad());
+    document.getElementById('sandbox-step-btn').addEventListener('click', () => sandboxStep());
+    document.getElementById('sandbox-runall-btn').addEventListener('click', () => sandboxRunAll());
+    document.getElementById('sandbox-reset-btn').addEventListener('click', () => sandboxReset());
+
+    // Format toggle
+    document.querySelectorAll('.sandbox-right .format-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.sandbox-right .format-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            sandboxFmt = btn.dataset.fmt;
+            sandboxUpdateRegs();
+        });
+    });
+
+    // Example loader
+    document.getElementById('sandbox-load').addEventListener('click', () => {
+        const ex = document.getElementById('sandbox-examples').value;
+        if (!ex) return;
+        document.getElementById('sandbox-code').value = SANDBOX_EXAMPLES[ex] || '';
+        document.getElementById('sandbox-examples').value = '';
+    });
+}
+
+const SANDBOX_EXAMPLES = {
+    // --- Data Movement ---
+    'mov': `; MOV - Copy values between registers and immediates
+mov eax, 42        ; Load immediate value
+mov ebx, eax       ; Copy register to register
+mov ecx, -5        ; Negative values (two's complement)
+mov edx, 0xFF      ; Hex values
+mov al, 0b11001100 ; Binary values into 8-bit register
+; Try HEX view to see the difference!`,
+
+    'xchg': `; XCHG - Swap two registers in one instruction
+mov eax, 100
+mov ebx, 200
+xchg eax, ebx
+; Now EAX=200, EBX=100 - swapped!
+; Useful when you need to swap without a temp register`,
+
+    'lea': `; LEA - Calculate address expressions (no memory access)
+; Compilers use LEA for fast math
+mov ecx, 10
+mov edx, 3
+lea eax, [ecx+edx]       ; EAX = 10+3 = 13
+lea ebx, [ecx+edx*4]     ; EBX = 10+12 = 22
+lea esi, [ecx+edx*4+5]   ; ESI = 10+12+5 = 27
+lea edi, [eax+eax*4]     ; EDI = 13*5 = 65 (multiply by 5!)`,
+
+    // --- Arithmetic ---
+    'add-sub': `; ADD and SUB
+mov eax, 30
+mov ebx, 12
+add eax, ebx    ; EAX = 30+12 = 42
+sub eax, 20     ; EAX = 42-20 = 22
+sub ebx, eax    ; EBX = 12-22 = -10 (wraps to large unsigned!)
+; Switch to HEX view to see the two's complement`,
+
+    'inc-dec': `; INC and DEC - Add/subtract 1
+mov eax, 10
+inc eax          ; 11
+inc eax          ; 12
+dec eax          ; 11
+; Edge case: decrementing 0 wraps to max unsigned
+mov ebx, 0
+dec ebx          ; EBX = 0xFFFFFFFF = -1`,
+
+    'neg': `; NEG - Two's complement negate (flip sign)
+mov eax, 5
+neg eax          ; EAX = -5 (0xFFFFFFFB)
+neg eax          ; EAX = 5 (back to positive)
+; NEG 0 stays 0
+mov ebx, 0
+neg ebx          ; EBX = 0`,
+
+    // --- Multiply & Divide ---
+    'mul': `; MUL - Unsigned multiply (result in EDX:EAX)
+mov eax, 252
+mov ecx, 6
+mul ecx
+; EDX:EAX = 252*6 = 1512
+; EDX = 0 (high bits), EAX = 1512 (low bits)
+; WARNING: MUL always overwrites EDX!`,
+
+    'imul': `; IMUL - Signed multiply (3 forms)
+; Form 1: imul dest, src, immediate
+mov edx, 512
+imul eax, edx, 14  ; EAX = 512*14 = 7168 (doesn't touch EDX)
+; Form 2: imul dest, src
+mov ecx, -7
+imul eax, ecx      ; EAX = 7168 * -7 = -50176
+; Form 3: imul src (one operand, result in EDX:EAX)
+; Less common, similar to MUL but signed`,
+
+    'div': `; DIV - Unsigned divide (EDX:EAX / src)
+; MUST zero EDX before DIV!
+mov eax, 17
+xor edx, edx     ; <-- Critical! Zero EDX first
+mov ecx, 5
+div ecx
+; EAX = 3 (quotient: 17/5)
+; EDX = 2 (remainder: 17%5)`,
+
+    'idiv': `; IDIV - Signed divide (needs CDQ first)
+mov eax, 7168
+mov ecx, -65
+cdq               ; Sign-extend EAX into EDX:EAX
+idiv ecx
+; EAX = -110 (quotient: 7168/-65)
+; EDX = 18 (remainder)
+; CDQ + IDIV always go together for signed division`,
+
+    // --- Bitwise Logic ---
+    'and': `; AND - Bitwise AND (both bits must be 1)
+; Common use: masking/extracting bits
+mov al, 0b11011010  ; = 218
+and al, 0b00001111  ; Keep only low 4 bits
+; AL = 0b00001010 = 10
+; The upper 4 bits are "masked off"`,
+
+    'or': `; OR - Bitwise OR (either bit can be 1)
+; Common use: setting specific bits
+mov al, 0b00001010  ; = 10
+or al, 0b11000000   ; Set the top 2 bits
+; AL = 0b11001010 = 202`,
+
+    'xor': `; XOR - Bitwise XOR (bits must differ)
+; XOR with self = 0 (fastest way to zero a register)
+mov eax, 12345
+xor eax, eax       ; EAX = 0 instantly
+; XOR can also toggle bits:
+mov al, 0b11001100
+xor al, 0b11110000
+; AL = 0b00111100 (top 4 bits flipped)`,
+
+    'not': `; NOT - Flip every bit (one's complement)
+mov al, 0b00000011  ; = 3
+not al               ; AL = 0b11111100 = 252
+; For 8-bit: NOT x = 255 - x
+; NOT is different from NEG!
+; NEG = flip bits + add 1 (two's complement)
+mov bl, 3
+neg bl               ; BL = 253 (-3)
+; NOT 3 = 252, NEG 3 = 253`,
+
+    'test': `; TEST - AND without storing (only sets flags)
+; Most common: test reg, reg to check for zero
+mov eax, 0
+test eax, eax    ; ZF=1 because EAX is 0
+; After this, JZ would jump, JNZ would not
+mov eax, 42
+test eax, eax    ; ZF=0 because EAX is nonzero
+; Now JNZ would jump, JZ would not`,
+
+    // --- Shifts ---
+    'shl-shr': `; SHL and SHR - Shift bits left/right
+mov eax, 10
+shl eax, 1       ; *2 = 20
+shl eax, 2       ; *4 = 80
+shr eax, 3       ; /8 = 10 (back to start)
+; SHR fills with zeros from the left (unsigned)`,
+
+    'sar': `; SAR vs SHR - Arithmetic vs Logical shift right
+; SAR preserves the sign bit (for signed numbers)
+mov eax, -100
+sar eax, 1       ; -100/2 = -50 (sign preserved!)
+; Compare with SHR on a negative number:
+mov ebx, -100
+shr ebx, 1       ; Huge positive number! (sign bit became 0)
+; Rule: use SHR for unsigned, SAR for signed`,
+
+    // --- Comparison & Branching ---
+    'cmp-jmp': `; CMP sets flags, conditional jumps read them
+mov eax, 10
+mov ebx, 20
+cmp eax, ebx       ; Computes 10-20, sets flags
+jbe less_or_eq     ; Jump if Below or Equal (unsigned)
+; This code runs if eax > ebx:
+mov ecx, 1
+jmp done
+less_or_eq:
+; This code runs if eax <= ebx:
+mov ecx, 2
+done:
+; ECX = 2 because 10 <= 20`,
+
+    'loop': `; Loop using DEC + JNZ
+; Sum the numbers 1 through 5
+mov eax, 0         ; accumulator
+mov ecx, 5         ; counter
+loop_start:
+add eax, ecx       ; add current counter
+dec ecx            ; count down
+test ecx, ecx     ; is counter zero?
+jnz loop_start    ; if not, loop again
+; EAX = 15 (5+4+3+2+1), ECX = 0`,
+
+    // --- Stack & Functions ---
+    'push-pop': `; PUSH and POP - Stack is Last-In-First-Out
+push 10            ; Push 10 onto stack
+push 20            ; Push 20 on top of 10
+push 30            ; Push 30 on top of 20
+pop eax            ; EAX = 30 (last pushed = first popped)
+pop ebx            ; EBX = 20
+pop ecx            ; ECX = 10`,
+
+    'call-ret': `; CALL and RET - Function calls
+mov eax, 5
+call double_it     ; Push return addr, jump to label
+; After return, EAX = 10
+jmp done
+double_it:
+add eax, eax       ; Double the value in EAX
+ret                ; Pop return addr, jump back
+done:
+nop`,
+
+    'stack-frame': `; Complete stack frame (function prologue/epilogue)
+push ebp               ; Save caller's base pointer
+mov ebp, esp           ; Set up our base pointer
+sub esp, 8             ; Allocate 2 local variables (4 bytes each)
+; [ebp-4] = first local, [ebp-8] = second local
+mov dword ptr [ebp-4], 42
+mov dword ptr [ebp-8], 100
+mov eax, [ebp-4]
+add eax, [ebp-8]      ; EAX = 142
+; Epilogue: clean up
+mov esp, ebp           ; Deallocate locals
+pop ebp                ; Restore caller's base pointer`,
+
+    'ida-style': `; IDA-style notation (var_N and arg_N)
+; var_4 = [ebp-4], arg_0 = [ebp+8]
+push 77                ; Push an "argument"
+call myfunc
+jmp done
+myfunc:
+push ebp
+mov ebp, esp
+sub esp, 4
+; Read the argument using IDA notation:
+mov eax, [ebp+arg_0]  ; = [ebp+8] = 77
+mov [ebp+var_4], eax   ; Store to local variable
+add eax, [ebp+var_4]  ; EAX = 77+77 = 154
+mov esp, ebp
+pop ebp
+ret
+done:
+nop`,
+};
+
+function sandboxLoad() {
+    const code = document.getElementById('sandbox-code').value;
+    sandboxSim = new AsmSimulator();
+    sandboxSim.loadProgram(code);
+    sandboxStepCount = 0;
+
+    // Build trace UI showing ALL lines (including labels and comments)
+    const trace = document.getElementById('sandbox-trace');
+    trace.innerHTML = '';
+    sandboxSim.lines.forEach((line, i) => {
+        const row = document.createElement('div');
+        const isLabel = /^\w+:/.test(line);
+        const isComment = line.startsWith(';') || line.startsWith('#');
+        const isEmpty = !line.trim();
+        row.className = 'mini-inst';
+        if (i === sandboxSim.pc) row.classList.add('current');
+        if (isComment) row.classList.add('comment-row');
+        row.dataset.idx = i;
+        row.innerHTML = `
+            <span class="mini-marker"></span>
+            <span class="mini-asm">${isComment ? `<span style="color:var(--overlay0,var(--text-dim));font-style:italic">${escHtml(line)}</span>` : isLabel ? `<span class="lbl">${escHtml(line)}</span>` : isEmpty ? '' : highlightAsm(line)}</span>
+            <span class="mini-result"></span>
+        `;
+        trace.appendChild(row);
+    });
+
+    sandboxUpdateRegs();
+    sandboxUpdateExplain('Click <strong>Step</strong> to execute instructions one at a time. Branches and jumps are fully supported!');
+    document.getElementById('sandbox-step-btn').disabled = false;
+    document.getElementById('sandbox-runall-btn').disabled = false;
+    document.getElementById('sandbox-reset-btn').disabled = false;
+}
+
+function sandboxStep() {
+    if (sandboxSim.pc >= sandboxSim.lines.length) return;
+    sandboxStepCount++;
+    if (sandboxStepCount > SANDBOX_MAX_STEPS) {
+        sandboxUpdateExplain('<span style="color:var(--red)">Execution stopped: exceeded 10,000 steps (likely infinite loop). Click Reset.</span>');
+        document.getElementById('sandbox-step-btn').disabled = true;
+        document.getElementById('sandbox-runall-btn').disabled = true;
+        return;
+    }
+
+    const result = sandboxSim.step();
+    if (!result) return;
+
+    // Update trace rows
+    const rows = document.querySelectorAll('#sandbox-trace .mini-inst');
+    // Remove current marker from all
+    rows.forEach(r => r.classList.remove('current'));
+
+    // Mark executed line
+    const executedRow = rows[result.lineIndex];
+    if (executedRow) {
+        executedRow.classList.add('executed');
+        const resultEl = executedRow.querySelector('.mini-result');
+        if (result.description) {
+            resultEl.textContent = result.description;
+            if (result.error) {
+                executedRow.classList.add('error');
+                resultEl.style.color = 'var(--red)';
+            } else if (result.branchTaken) {
+                resultEl.style.color = 'var(--green)';
+            } else if (result.description.includes('NOT TAKEN')) {
+                resultEl.style.color = 'var(--red)';
+            } else {
+                resultEl.style.color = '';
+            }
+        }
+    }
+
+    // Mark next line as current
+    if (sandboxSim.pc < sandboxSim.lines.length) {
+        rows[sandboxSim.pc]?.classList.add('current');
+        // Scroll into view
+        rows[sandboxSim.pc]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    sandboxUpdateRegs();
+
+    const line = sandboxSim.lines[result.lineIndex];
+    if (result.error) {
+        sandboxUpdateExplain(`<span style="color:var(--red)">${result.description}</span>`);
+    } else {
+        sandboxUpdateExplain(describeInstruction(line, result));
+    }
+
+    if (sandboxSim.pc >= sandboxSim.lines.length) {
+        document.getElementById('sandbox-step-btn').disabled = true;
+        document.getElementById('sandbox-runall-btn').disabled = true;
+        sandboxUpdateExplain('Execution complete. Click <strong>Reset</strong> to start over.');
+    }
+}
+
+function sandboxRunAll() {
+    let steps = 0;
+    while (sandboxSim.pc < sandboxSim.lines.length && steps < SANDBOX_MAX_STEPS) {
+        sandboxStep();
+        steps++;
+    }
+    if (steps >= SANDBOX_MAX_STEPS) {
+        sandboxUpdateExplain('<span style="color:var(--red)">Stopped after 10,000 steps (likely infinite loop). Click Reset.</span>');
+    }
+}
+
+function sandboxReset() {
+    const code = document.getElementById('sandbox-code').value;
+    sandboxSim = new AsmSimulator();
+    sandboxSim.loadProgram(code);
+    sandboxStepCount = 0;
+
+    const rows = document.querySelectorAll('#sandbox-trace .mini-inst');
+    rows.forEach((r, i) => {
+        r.classList.remove('current', 'executed', 'error');
+        r.querySelector('.mini-result').textContent = '';
+        const resultEl = r.querySelector('.mini-result');
+        if (resultEl) resultEl.style.color = '';
+    });
+    // Set current to first executable line
+    if (rows[sandboxSim.pc]) rows[sandboxSim.pc].classList.add('current');
+
+    sandboxUpdateRegs();
+    sandboxUpdateExplain('Reset complete. Click <strong>Step</strong> to begin.');
+    document.getElementById('sandbox-step-btn').disabled = false;
+    document.getElementById('sandbox-runall-btn').disabled = false;
+}
+
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function sandboxUpdateRegs() {
+    const body = document.getElementById('sandbox-regs');
+    body.innerHTML = '';
+    const activeRegs = sandboxSim.getActiveRegs();
+    if (activeRegs.length === 0) {
+        body.innerHTML = '<div class="sim-reg-row" style="color:var(--text-dim);font-size:0.8rem">No registers set yet</div>';
+        return;
+    }
+
+    activeRegs.forEach(name => {
+        const val = sandboxSim.getReg(name);
+        const bits = 32;
+        const row = document.createElement('div');
+        row.className = 'sim-reg-row';
+        if (sandboxSim.changed.has(name)) row.classList.add('changed');
+        row.innerHTML = `
+            <span class="sim-reg-name">${name.toUpperCase()}</span>
+            <span class="sim-reg-value">${sandboxSim.formatVal(val, bits, sandboxFmt)}</span>
+        `;
+        body.appendChild(row);
+    });
+
+    // Also show 8/16-bit sub-registers if they were used
+    const subRegs = ['al','ah','bl','bh','cl','ch','dl','dh','ax','bx','cx','dx'];
+    subRegs.forEach(name => {
+        if (sandboxSim.changed.has(name) && !activeRegs.includes(name)) {
+            const bits = sandboxSim.regBits(name);
+            const val = sandboxSim.getReg(name);
+            const row = document.createElement('div');
+            row.className = 'sim-reg-row changed';
+            row.innerHTML = `
+                <span class="sim-reg-name">${name.toUpperCase()}</span>
+                <span class="sim-reg-value">${sandboxSim.formatVal(val, bits, sandboxFmt)}</span>
+            `;
+            body.appendChild(row);
+        }
+    });
+
+    // Flags
+    const flagsBox = document.getElementById('sandbox-flags');
+    const flagsBody = document.getElementById('sandbox-flags-body');
+    if (sandboxStepCount > 0) {
+        flagsBox.style.display = '';
+        flagsBody.innerHTML = `
+            <div class="sim-reg-row">
+                <span class="sim-reg-name">ZF</span>
+                <span class="sim-reg-value">${sandboxSim.flags.ZF}</span>
+            </div>
+            <div class="sim-reg-row">
+                <span class="sim-reg-name">CF</span>
+                <span class="sim-reg-value">${sandboxSim.flags.CF}</span>
+            </div>
+            <div class="sim-reg-row">
+                <span class="sim-reg-name">SF</span>
+                <span class="sim-reg-value">${sandboxSim.flags.SF}</span>
+            </div>
+            <div class="sim-reg-row">
+                <span class="sim-reg-name">OF</span>
+                <span class="sim-reg-value">${sandboxSim.flags.OF}</span>
+            </div>
+        `;
+    }
+
+    // Stack view
+    const stackEntries = sandboxSim.getStackEntries();
+    let stackBox = document.getElementById('sandbox-stack');
+    if (stackEntries.length > 0 && sandboxSim.getReg('esp') !== sandboxSim.espInit) {
+        if (!stackBox) {
+            stackBox = document.createElement('div');
+            stackBox.id = 'sandbox-stack';
+            stackBox.className = 'sim-flags-box';
+            stackBox.innerHTML = '<div class="sim-reg-header"><h3>Stack</h3></div>';
+            const stackBody = document.createElement('div');
+            stackBody.id = 'sandbox-stack-body';
+            stackBody.className = 'sim-reg-body';
+            stackBox.appendChild(stackBody);
+            flagsBox.parentNode.insertBefore(stackBox, flagsBox.nextSibling);
+        }
+        stackBox.style.display = '';
+        const stackBody = document.getElementById('sandbox-stack-body');
+        stackBody.innerHTML = stackEntries.map(e => `
+            <div class="sim-reg-row${e.label ? ' changed' : ''}">
+                <span class="sim-reg-name" style="font-size:0.7rem">[${e.addr.toString(16)}]</span>
+                <span class="sim-reg-value">${sandboxSim.formatVal(e.val, 32, sandboxFmt)} ${e.label ? '<span style="color:var(--teal,var(--accent));font-size:0.7rem">' + e.label + '</span>' : ''}</span>
+            </div>
+        `).join('');
+    } else if (stackBox) {
+        stackBox.style.display = 'none';
+    }
+}
+
+function sandboxUpdateExplain(html) {
+    document.getElementById('sandbox-explain').innerHTML = `<h4>Instruction Info</h4><p>${html}</p>`;
+}
+
+function describeInstruction(line, result) {
+    const parts = line.match(/^(\w+)\s*(.*)/);
+    if (!parts) return result.description;
+    const op = parts[1].toLowerCase();
+    const operands = parts[2];
+
+    const descs = {
+        mov: `<strong>MOV</strong>: Copy value into destination. <code>${line}</code>`,
+        add: `<strong>ADD</strong>: Add source to destination. <code>${line}</code>`,
+        sub: `<strong>SUB</strong>: Subtract source from destination. <code>${line}</code>`,
+        inc: `<strong>INC</strong>: Add 1 to register. <code>${line}</code>`,
+        dec: `<strong>DEC</strong>: Subtract 1 from register. <code>${line}</code>`,
+        neg: `<strong>NEG</strong>: Two's complement negate (flip sign). <code>${line}</code>`,
+        xchg: `<strong>XCHG</strong>: Swap both registers. <code>${line}</code>`,
+        and: `<strong>AND</strong>: Bitwise AND (1 only if both bits are 1). <code>${line}</code>`,
+        or: `<strong>OR</strong>: Bitwise OR (1 if either bit is 1). <code>${line}</code>`,
+        xor: `<strong>XOR</strong>: Bitwise XOR (1 if bits differ). <code>${line}</code>`,
+        not: `<strong>NOT</strong>: Flip every bit. <code>${line}</code>`,
+        test: `<strong>TEST</strong>: AND without storing result (flags only). <code>${line}</code>`,
+        cmp: `<strong>CMP</strong>: Subtract without storing result (flags only). <code>${line}</code>`,
+        shl: `<strong>SHL</strong>: Shift left (multiply by 2^n). <code>${line}</code>`,
+        shr: `<strong>SHR</strong>: Logical shift right (unsigned divide by 2^n). <code>${line}</code>`,
+        sar: `<strong>SAR</strong>: Arithmetic shift right (signed divide by 2^n). <code>${line}</code>`,
+        mul: `<strong>MUL</strong>: Unsigned multiply. Result in EDX:EAX. <code>${line}</code>`,
+        imul: `<strong>IMUL</strong>: Signed multiply. <code>${line}</code>`,
+        div: `<strong>DIV</strong>: Unsigned divide EDX:EAX by source. EAX=quotient, EDX=remainder. <code>${line}</code>`,
+        idiv: `<strong>IDIV</strong>: Signed divide. <code>${line}</code>`,
+        cdq: `<strong>CDQ</strong>: Sign-extend EAX into EDX:EAX. <code>${line}</code>`,
+        lea: `<strong>LEA</strong>: Compute address expression (no memory access). <code>${line}</code>`,
+        push: `<strong>PUSH</strong>: Decrement ESP by 4, store value at [ESP]. <code>${line}</code>`,
+        pop: `<strong>POP</strong>: Load value from [ESP] into dest, increment ESP by 4. <code>${line}</code>`,
+        call: `<strong>CALL</strong>: Push return address, jump to function. <code>${line}</code>`,
+        ret: `<strong>RET</strong>: Pop return address, jump back to caller. <code>${line}</code>`,
+        retn: `<strong>RET</strong>: Pop return address, jump back to caller. <code>${line}</code>`,
+        leave: `<strong>LEAVE</strong>: Restore stack frame (mov esp,ebp; pop ebp). <code>${line}</code>`,
+        jmp: `<strong>JMP</strong>: Unconditional jump. <code>${line}</code>`,
+        je: `<strong>JE/JZ</strong>: Jump if equal (ZF=1). <code>${line}</code>`,
+        jz: `<strong>JZ</strong>: Jump if zero (ZF=1). <code>${line}</code>`,
+        jne: `<strong>JNE/JNZ</strong>: Jump if not equal (ZF=0). <code>${line}</code>`,
+        jnz: `<strong>JNZ</strong>: Jump if not zero (ZF=0). <code>${line}</code>`,
+        jbe: `<strong>JBE</strong>: Jump if below or equal, unsigned (CF=1 or ZF=1). <code>${line}</code>`,
+        ja: `<strong>JA</strong>: Jump if above, unsigned (CF=0 and ZF=0). <code>${line}</code>`,
+        jb: `<strong>JB</strong>: Jump if below, unsigned (CF=1). <code>${line}</code>`,
+        jl: `<strong>JL</strong>: Jump if less, signed (SF!=OF). <code>${line}</code>`,
+        jg: `<strong>JG</strong>: Jump if greater, signed (ZF=0 and SF=OF). <code>${line}</code>`,
+    };
+
+    return (descs[op] || `<code>${line}</code>`) + `<br><span style="color:var(--orange)">${result.description}</span>`;
+}
+
+// ============================================================
+// MINI-SIM (inline demos in learn sections)
+// ============================================================
+
+function initMiniSims() {
+    document.querySelectorAll('.mini-sim').forEach(el => {
+        const code = el.dataset.code || '';
+        const bits = parseInt(el.dataset.bits) || 32;
+        const lines = code.split('\n').filter(l => l.trim());
+        const sim = new AsmSimulator();
+        let pc = 0;
+
+        const body = el.querySelector('.mini-sim-body');
+        const stepBtn = el.querySelector('.mini-step');
+        const resetBtn = el.querySelector('.mini-reset');
+
+        function render() {
+            body.innerHTML = '';
+            lines.forEach((line, i) => {
+                const row = document.createElement('div');
+                row.className = 'mini-inst';
+                if (i < pc) row.classList.add('executed');
+                if (i === pc && pc < lines.length) row.classList.add('current');
+                row.innerHTML = `
+                    <span class="mini-marker"></span>
+                    <span class="mini-asm">${highlightAsm(line)}</span>
+                    <span class="mini-result" id="mini-r-${el.id || ''}-${i}"></span>
+                `;
+                body.appendChild(row);
+            });
+            // Show register state after all executed instructions
+            if (pc > 0) {
+                const regDiv = document.createElement('div');
+                regDiv.style.cssText = 'padding:0.4rem 0.7rem;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:0.78rem;color:var(--text-dim);';
+                const regs = sim.getActiveRegs();
+                const parts = regs.map(r => {
+                    const v = sim.getReg(r);
+                    const s = sim.toSigned(v, 32);
+                    const display = s < 0 ? `${s}` : `${v}`;
+                    return `<span style="color:var(--purple)">${r.toUpperCase()}</span>=${display}`;
+                });
+                regDiv.innerHTML = parts.join(' &nbsp; ');
+                body.appendChild(regDiv);
+            }
+        }
+
+        function step() {
+            if (pc >= lines.length) return;
+            const result = sim.execute(lines[pc]);
+            pc++;
+            render();
+            // Fill in result for the just-executed instruction
+            const rows = body.querySelectorAll('.mini-inst');
+            if (rows[pc - 1]) {
+                rows[pc - 1].querySelector('.mini-result').textContent = result.description;
+            }
+        }
+
+        function reset() {
+            sim.reset();
+            pc = 0;
+            render();
+        }
+
+        stepBtn.addEventListener('click', step);
+        resetBtn.addEventListener('click', reset);
+        render();
+    });
+}
+
+// ============================================================
+// ASM SYNTAX HIGHLIGHTING
+// ============================================================
+
+function highlightAsm(text) {
+    if (!text) return '';
+    const match = text.match(/^(\w+)\s*(.*)/);
+    if (!match) return text;
+    const op = match[1];
+    let operands = match[2];
+    operands = operands.replace(/\b(eax|ebx|ecx|edx|esi|edi|ebp|esp|al|ah|bl|bh|cl|ch|dl|dh|ax|bx|cx|dx)\b/gi, '<span class="reg">$1</span>');
+    operands = operands.replace(/\b(-?\d+)\b/g, '<span class="imm">$1</span>');
+    operands = operands.replace(/\b(0x[0-9A-Fa-f]+)\b/gi, '<span class="imm">$1</span>');
+    return `<span class="op">${op}</span> ${operands}`;
+}
+
+// ============================================================
+// NUMBER CONVERTER
+// ============================================================
+
+function initNumberConverter() {
+    const decEl = document.getElementById('conv-dec');
+    const udecEl = document.getElementById('conv-udec');
+    const hexEl = document.getElementById('conv-hex');
+    const binEl = document.getElementById('conv-bin');
+    const bitsEl = document.getElementById('conv-bits');
+
+    function getBits() { return parseInt(bitsEl.value); }
+    function mask() { return getBits() === 8 ? 0xFF : getBits() === 16 ? 0xFFFF : 0xFFFFFFFF; }
+    // Use 2**bits instead of 1<<bits to avoid JS 32-bit truncation
+    function toUnsigned(n, bits) { return n < 0 ? (n + 2 ** bits) >>> 0 : (n & mask()) >>> 0; }
+    function toSignedConv(n, bits) { const s = 2 ** (bits - 1); return n >= s ? n - 2 ** bits : n; }
+
+    function fromDec(val) {
+        const bits = getBits();
+        let n = parseInt(val);
+        if (isNaN(n)) return;
+        n = toUnsigned(n, bits);
+        udecEl.value = n;
+        hexEl.value = n.toString(16).toUpperCase().padStart(bits / 4, '0');
+        binEl.value = n.toString(2).padStart(bits, '0');
+    }
+
+    function fromUdec(val) {
+        const bits = getBits();
+        let n = parseInt(val);
+        if (isNaN(n)) return;
+        n = (n & mask()) >>> 0;
+        decEl.value = toSignedConv(n, bits);
+        hexEl.value = n.toString(16).toUpperCase().padStart(bits / 4, '0');
+        binEl.value = n.toString(2).padStart(bits, '0');
+    }
+
+    function fromHex(val) {
+        const bits = getBits();
+        let n = parseInt(val, 16);
+        if (isNaN(n)) return;
+        n = (n & mask()) >>> 0;
+        decEl.value = toSignedConv(n, bits);
+        udecEl.value = n;
+        binEl.value = n.toString(2).padStart(bits, '0');
+    }
+
+    function fromBin(val) {
+        const bits = getBits();
+        let n = parseInt(val, 2);
+        if (isNaN(n)) return;
+        n = (n & mask()) >>> 0;
+        decEl.value = toSignedConv(n, bits);
+        udecEl.value = n;
+        hexEl.value = n.toString(16).toUpperCase().padStart(bits / 4, '0');
+    }
+
+    decEl.addEventListener('input', () => fromDec(decEl.value));
+    udecEl.addEventListener('input', () => fromUdec(udecEl.value));
+    hexEl.addEventListener('input', () => fromHex(hexEl.value));
+    binEl.addEventListener('input', () => fromBin(binEl.value));
+    bitsEl.addEventListener('change', () => { if (decEl.value) fromDec(decEl.value); });
+}
+
+// ============================================================
+// BITWISE CALCULATOR
+// ============================================================
+
+function initBitwiseCalc() {
+    const aEl = document.getElementById('bitcalc-a');
+    const bEl = document.getElementById('bitcalc-b');
+    const bitsEl = document.getElementById('bitcalc-bits');
+    const aBin = document.getElementById('bitcalc-a-bin');
+    const bBin = document.getElementById('bitcalc-b-bin');
+    const results = document.getElementById('bitcalc-results');
+
+    function parseInput(val) {
+        val = val.trim();
+        if (/^0x/i.test(val)) return parseInt(val, 16);
+        if (/^0b/i.test(val)) return parseInt(val.slice(2), 2);
+        return parseInt(val);
+    }
+
+    function update() {
+        const bits = parseInt(bitsEl.value);
+        const m = bits === 8 ? 0xFF : bits === 16 ? 0xFFFF : 0xFFFFFFFF;
+        const a = (parseInput(aEl.value) & m) >>> 0;
+        const b = (parseInput(bEl.value) & m) >>> 0;
+
+        if (isNaN(a) || isNaN(b)) { results.innerHTML = ''; return; }
+
+        aBin.textContent = a.toString(2).padStart(bits, '0');
+        bBin.textContent = b.toString(2).padStart(bits, '0');
+
+        const ops = [
+            { name: 'AND', val: (a & b) >>> 0 },
+            { name: 'OR', val: (a | b) >>> 0 },
+            { name: 'XOR', val: (a ^ b) >>> 0 },
+            { name: 'NOT A', val: (~a & m) >>> 0 },
+            { name: 'NOT B', val: (~b & m) >>> 0 },
+        ];
+
+        results.innerHTML = ops.map(op => {
+            const binStr = op.val.toString(2).padStart(bits, '0');
+            const coloredBits = binStr.split('').map(b =>
+                b === '1' ? `<span class="bit-on">1</span>` : `<span class="bit-off">0</span>`
+            ).join('');
+            return `<div class="bitcalc-result-row">
+                <span class="bitcalc-op">${op.name}</span>
+                <span class="bitcalc-bits">${coloredBits}</span>
+                <span class="bitcalc-dec">= ${op.val}</span>
+            </div>`;
+        }).join('');
+    }
+
+    aEl.addEventListener('input', update);
+    bEl.addEventListener('input', update);
+    bitsEl.addEventListener('change', update);
+    update();
+}
+
+// ============================================================
+// INSTRUCTION REFERENCE (searchable)
+// ============================================================
+
+const REF_DATA = [
+    { cat: 'Data Movement', entries: [
+        { name: 'MOV dest, src', desc: 'Copy value from src into dest. Source unchanged.', ex: 'mov eax, 10 → eax = 10' },
+        { name: 'XCHG a, b', desc: 'Swap values of a and b.', ex: 'xchg eax, ebx → swapped' },
+        { name: 'LEA dest, [expr]', desc: 'Compute address expression, store result in dest. No memory access.', ex: 'lea esi, [ecx+edi] → esi = ecx + edi' },
+        { name: 'PUSH src', desc: 'ESP -= 4, then store src at [ESP].', ex: 'push eax → stack grows' },
+        { name: 'POP dest', desc: 'Load [ESP] into dest, then ESP += 4.', ex: 'pop ebp → ebp = top of stack' },
+    ]},
+    { cat: 'Arithmetic', entries: [
+        { name: 'ADD dest, src', desc: 'dest = dest + src. Sets flags.', ex: 'add eax, 5 → eax += 5' },
+        { name: 'SUB dest, src', desc: 'dest = dest - src. Sets flags.', ex: 'sub eax, ecx → eax -= ecx' },
+        { name: 'INC dest', desc: 'dest = dest + 1.', ex: 'inc eax → eax += 1' },
+        { name: 'DEC dest', desc: 'dest = dest - 1.', ex: 'dec eax → eax -= 1' },
+        { name: 'NEG dest', desc: "Two's complement negate: dest = -dest.", ex: 'neg eax → eax = -eax' },
+        { name: 'MUL src', desc: 'Unsigned: EDX:EAX = EAX * src. Clobbers EDX.', ex: 'mul ecx → EDX:EAX = EAX * ECX' },
+        { name: 'IMUL (1/2/3 operand)', desc: 'Signed multiply. 3-op: dest = src * imm. 2-op: dest *= src. 1-op: EDX:EAX = EAX * src.', ex: 'imul eax, edx, 14 → eax = edx * 14' },
+        { name: 'DIV src', desc: 'Unsigned divide EDX:EAX by src. EAX = quotient, EDX = remainder. Zero EDX first!', ex: 'div ecx → EAX = result, EDX = remainder' },
+        { name: 'IDIV src', desc: 'Signed divide EDX:EAX by src. Use CDQ first to sign-extend.', ex: 'idiv ecx → signed quotient/remainder' },
+        { name: 'CDQ', desc: 'Sign-extend EAX into EDX:EAX. EDX = -1 if EAX negative, else 0.', ex: 'cdq → EDX = sign extension' },
+    ]},
+    { cat: 'Bitwise Logic', entries: [
+        { name: 'AND dest, src', desc: 'Bitwise AND. Result bit is 1 only if both bits are 1.', ex: '1011 AND 1101 = 1001' },
+        { name: 'OR dest, src', desc: 'Bitwise OR. Result bit is 1 if either bit is 1.', ex: '1010 OR 0110 = 1110' },
+        { name: 'XOR dest, src', desc: 'Bitwise XOR. Result bit is 1 if bits differ. XOR reg,reg = 0.', ex: '1101 XOR 1011 = 0110' },
+        { name: 'NOT dest', desc: 'Flip every bit (one\'s complement). 8-bit: NOT x = 255-x.', ex: 'NOT 00000011 = 11111100' },
+        { name: 'TEST a, b', desc: 'Compute a AND b, set flags, discard result. TEST reg,reg checks for zero.', ex: 'test eax, eax → ZF=1 if eax==0' },
+    ]},
+    { cat: 'Shifts', entries: [
+        { name: 'SHL dest, count', desc: 'Shift left. Multiply by 2^count. Zeros fill right.', ex: 'shl eax, 2 → eax *= 4' },
+        { name: 'SHR dest, count', desc: 'Logical shift right. Unsigned divide by 2^count. Zeros fill left.', ex: 'shr eax, 3 → eax /= 8' },
+        { name: 'SAR dest, count', desc: 'Arithmetic shift right. Signed divide by 2^count. Preserves sign bit.', ex: 'sar ecx, 1 → ecx /= 2 (signed)' },
+    ]},
+    { cat: 'Branching', entries: [
+        { name: 'CMP a, b', desc: 'Compare: computes a - b, sets flags, discards result.', ex: 'cmp ebx, 20 → flags based on ebx-20' },
+        { name: 'JMP target', desc: 'Unconditional jump. Always taken.', ex: 'jmp label → always jumps' },
+        { name: 'JE / JZ', desc: 'Jump if Equal / Zero. ZF=1.', ex: 'After cmp a,b: jumps if a==b' },
+        { name: 'JNE / JNZ', desc: 'Jump if Not Equal / Not Zero. ZF=0.', ex: 'After cmp a,b: jumps if a!=b' },
+        { name: 'JB / JNAE', desc: 'Jump if Below (unsigned). CF=1.', ex: 'After cmp a,b: jumps if a < b (unsigned)' },
+        { name: 'JBE / JNA', desc: 'Jump if Below or Equal (unsigned). CF=1 or ZF=1.', ex: 'After cmp a,b: jumps if a <= b' },
+        { name: 'JA / JNBE', desc: 'Jump if Above (unsigned). CF=0 and ZF=0.', ex: 'After cmp a,b: jumps if a > b' },
+        { name: 'JAE / JNB', desc: 'Jump if Above or Equal (unsigned). CF=0.', ex: 'After cmp a,b: jumps if a >= b' },
+        { name: 'JL / JNGE', desc: 'Jump if Less (signed). SF!=OF.', ex: 'After cmp a,b: jumps if a < b (signed)' },
+        { name: 'JG / JNLE', desc: 'Jump if Greater (signed). ZF=0 and SF==OF.', ex: 'After cmp a,b: jumps if a > b (signed)' },
+    ]},
+    { cat: 'Stack & Control', entries: [
+        { name: 'CALL target', desc: 'Push return address, jump to target.', ex: 'call func → push next_addr; jmp func' },
+        { name: 'RET', desc: 'Pop return address, jump to it.', ex: 'ret → pop addr; jmp addr' },
+        { name: 'NOP', desc: 'No operation. Does nothing.', ex: 'nop → nothing happens' },
+    ]},
+];
+
+function initReference() {
+    const container = document.getElementById('ref-content');
+    const searchEl = document.getElementById('ref-search');
+
+    function renderRef(filter) {
+        container.innerHTML = '';
+        const f = (filter || '').toLowerCase();
+        REF_DATA.forEach(cat => {
+            const entries = cat.entries.filter(e =>
+                !f || e.name.toLowerCase().includes(f) || e.desc.toLowerCase().includes(f)
+            );
+            if (entries.length === 0) return;
+            const catDiv = document.createElement('div');
+            catDiv.className = 'ref-category';
+            catDiv.innerHTML = `<h2>${cat.cat}</h2>`;
+            const grid = document.createElement('div');
+            grid.className = 'ref-grid';
+            entries.forEach(e => {
+                const card = document.createElement('div');
+                card.className = 'ref-card';
+                card.innerHTML = `
+                    <h4>${e.name}</h4>
+                    <p>${e.desc}</p>
+                    <div class="ref-example"><code>${e.ex}</code></div>
+                `;
+                grid.appendChild(card);
+            });
+            catDiv.appendChild(grid);
+            container.appendChild(catDiv);
+        });
+    }
+
+    searchEl.addEventListener('input', () => renderRef(searchEl.value));
+    renderRef();
+}
+
+// ============================================================
+// ENDIANNESS INTERACTIVE
+// ============================================================
+
+function initEndianness() {
+    const input = document.getElementById('endian-val');
+    if (!input) return;
+
+    const leCells = document.getElementById('endian-le-cells');
+    const beCells = document.getElementById('endian-be-cells');
+    const breakdown = document.getElementById('endian-breakdown');
+
+    function update() {
+        let hex = input.value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+        // Pad to 8 hex digits (4 bytes)
+        hex = hex.padStart(8, '0').slice(0, 8);
+
+        // Split into bytes
+        const bytes = [];
+        for (let i = 0; i < 8; i += 2) {
+            bytes.push(hex.slice(i, i + 2));
+        }
+        // bytes[0] = high byte, bytes[3] = low byte
+
+        // Little endian: reverse the byte order
+        const leBytes = [...bytes].reverse();
+        // Big endian: same order as written
+        const beBytes = [...bytes];
+
+        function renderCells(container, byteArr) {
+            container.innerHTML = '';
+            byteArr.forEach((b, i) => {
+                const cell = document.createElement('div');
+                cell.className = 'mem-cell';
+                cell.innerHTML = `<span class="addr">+${i}</span><span class="val">0x${b}</span>`;
+                container.appendChild(cell);
+            });
+        }
+
+        renderCells(leCells, leBytes);
+        renderCells(beCells, beBytes);
+
+        // Show breakdown
+        const val = parseInt(hex, 16) >>> 0;
+        breakdown.innerHTML = `
+            <span style="color:var(--text)">0x${hex}</span> = ${val} decimal<br>
+            <span style="color:var(--accent)">Little Endian in memory:</span> <span style="color:var(--orange)">${leBytes.join(' ')}</span> &nbsp;
+            <span style="color:var(--accent)">Big Endian:</span> <span style="color:var(--orange)">${beBytes.join(' ')}</span>
+        `;
+    }
+
+    input.addEventListener('input', update);
+    update();
+}
