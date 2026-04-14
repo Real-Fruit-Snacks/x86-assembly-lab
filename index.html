@@ -15,6 +15,7 @@
         <ul id="nav-list">
             <li><a href="#home" class="nav-link active" data-section="home">Home</a></li>
             <li><a href="#sandbox" class="nav-link" data-section="sandbox">Sandbox Simulator</a></li>
+            <li><a href="#quiz" class="nav-link" data-section="quiz">Register Quiz</a></li>
             <li class="nav-group-label">Fundamentals</li>
             <li><a href="#learn-registers" class="nav-link" data-section="learn-registers">Register Map</a></li>
             <li><a href="#learn-twos-comp" class="nav-link" data-section="learn-twos-comp">Two's Complement</a></li>
@@ -183,6 +184,33 @@ Examples:
                         <div id="sandbox-flags-body" class="sim-reg-body"></div>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Register Quiz -->
+        <section id="quiz" class="section">
+            <h1>Register Quiz</h1>
+            <p>Read the assembly, predict the register values. How fast can you go?</p>
+
+            <div class="quiz-controls">
+                <div class="quiz-difficulty">
+                    <label>Difficulty:</label>
+                    <button class="sim-btn quiz-diff-btn active" data-diff="easy">Easy</button>
+                    <button class="sim-btn quiz-diff-btn" data-diff="medium">Medium</button>
+                    <button class="sim-btn quiz-diff-btn" data-diff="hard">Hard</button>
+                </div>
+                <button id="quiz-start" class="sim-btn primary">New Question</button>
+            </div>
+
+            <div class="quiz-stats">
+                <div class="quiz-stat"><span class="quiz-stat-label">Score</span><span id="quiz-score" class="quiz-stat-val">0</span></div>
+                <div class="quiz-stat"><span class="quiz-stat-label">Streak</span><span id="quiz-streak" class="quiz-stat-val">0</span></div>
+                <div class="quiz-stat"><span class="quiz-stat-label">Best</span><span id="quiz-best" class="quiz-stat-val">0</span></div>
+                <div class="quiz-stat"><span class="quiz-stat-label">Time</span><span id="quiz-timer" class="quiz-stat-val">--</span></div>
+            </div>
+
+            <div id="quiz-area" class="quiz-area">
+                <div class="quiz-placeholder">Click <strong>New Question</strong> to start. Read the assembly, figure out what each register will be, and type your answers.</div>
             </div>
         </section>
 

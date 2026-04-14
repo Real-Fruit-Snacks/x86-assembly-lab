@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBitwiseCalc();
     initReference();
     initEndianness();
+    initQuiz();
 });
 
 // ============================================================
@@ -930,4 +931,260 @@ function initEndianness() {
 
     input.addEventListener('input', update);
     update();
+}
+
+// ============================================================
+// REGISTER QUIZ
+// ============================================================
+
+function initQuiz() {
+    let difficulty = 'easy';
+    let score = 0, streak = 0, best = 0;
+    let timerStart = null, timerInterval = null;
+    let currentAnswer = null;
+
+    const scoreEl = document.getElementById('quiz-score');
+    const streakEl = document.getElementById('quiz-streak');
+    const bestEl = document.getElementById('quiz-best');
+    const timerEl = document.getElementById('quiz-timer');
+    const area = document.getElementById('quiz-area');
+    const startBtn = document.getElementById('quiz-start');
+
+    // Difficulty buttons
+    document.querySelectorAll('.quiz-diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.quiz-diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            difficulty = btn.dataset.diff;
+        });
+    });
+
+    startBtn.addEventListener('click', () => generateQuestion());
+
+    function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function generateQuestion() {
+        const q = difficulty === 'easy' ? genEasy() : difficulty === 'medium' ? genMedium() : genHard();
+
+        // Run through simulator to get correct answers
+        const sim = new AsmSimulator();
+        sim.loadProgram(q.code);
+        let steps = 0;
+        while (sim.pc < sim.lines.length && steps < 500) { sim.step(); steps++; }
+
+        currentAnswer = {};
+        q.askRegs.forEach(r => { currentAnswer[r] = sim.getReg(r); });
+
+        // Render
+        const codeHtml = q.code.split('\n').map(l => highlightAsm(l.trim())).join('\n');
+        area.innerHTML = `
+            <div class="quiz-code">${codeHtml}</div>
+            <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.6rem">What are the final values of these registers? (Enter decimal values)</p>
+            <div class="quiz-inputs" id="quiz-inputs">
+                ${q.askRegs.map(r => `
+                    <div class="quiz-input-group">
+                        <label>${r.toUpperCase()}</label>
+                        <input type="text" data-reg="${r}" placeholder="?" autocomplete="off">
+                    </div>
+                `).join('')}
+            </div>
+            <button class="sim-btn primary quiz-submit" id="quiz-check">Check Answer</button>
+            <div id="quiz-feedback"></div>
+        `;
+
+        document.getElementById('quiz-check').addEventListener('click', checkAnswer);
+        // Enter key submits
+        area.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer(); });
+        });
+        // Focus first input
+        area.querySelector('input')?.focus();
+
+        // Start timer
+        timerStart = Date.now();
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const elapsed = ((Date.now() - timerStart) / 1000).toFixed(1);
+            timerEl.textContent = elapsed + 's';
+        }, 100);
+    }
+
+    function checkAnswer() {
+        if (!currentAnswer) return;
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        const elapsed = ((Date.now() - timerStart) / 1000).toFixed(1);
+
+        let allCorrect = true;
+        const inputs = area.querySelectorAll('#quiz-inputs input');
+        const feedbackLines = [];
+
+        inputs.forEach(inp => {
+            const reg = inp.dataset.reg;
+            const expected = currentAnswer[reg];
+            const userVal = inp.value.trim();
+
+            // Parse user input (support dec, hex, negative)
+            let parsed = null;
+            if (/^-?\d+$/.test(userVal)) parsed = parseInt(userVal);
+            else if (/^-?0x[0-9a-fA-F]+$/i.test(userVal)) parsed = parseInt(userVal, 16);
+            else if (/^[0-9a-fA-F]+h$/i.test(userVal)) parsed = parseInt(userVal.slice(0,-1), 16);
+
+            // Handle signed input: if user types negative, convert to unsigned for comparison
+            let match = false;
+            if (parsed !== null) {
+                const unsigned = parsed < 0 ? (parsed + 2**32) >>> 0 : parsed >>> 0;
+                match = unsigned === expected;
+            }
+
+            if (match) {
+                inp.classList.add('correct');
+                inp.classList.remove('wrong');
+                feedbackLines.push(`<span class="answer-line"><span class="val-correct">${reg.toUpperCase()} = ${expected}</span></span>`);
+            } else {
+                allCorrect = false;
+                inp.classList.add('wrong');
+                inp.classList.remove('correct');
+                const signed = expected >= 2**31 ? expected - 2**32 : expected;
+                const display = signed < 0 ? `${signed} (${expected})` : `${expected}`;
+                feedbackLines.push(`<span class="answer-line">${reg.toUpperCase()}: your answer <span class="val-wrong">${userVal || '?'}</span> &rarr; correct: <span class="val-correct">${display}</span></span>`);
+            }
+        });
+
+        // Disable check button
+        document.getElementById('quiz-check').disabled = true;
+
+        const feedback = document.getElementById('quiz-feedback');
+        if (allCorrect) {
+            score += difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
+            streak++;
+            if (streak > best) best = streak;
+            feedback.className = 'quiz-feedback correct';
+            feedback.innerHTML = `Correct! (${elapsed}s)${streak > 1 ? ` &mdash; ${streak} in a row!` : ''}`;
+        } else {
+            streak = 0;
+            feedback.className = 'quiz-feedback wrong';
+            feedback.innerHTML = `Not quite. Here are the correct values:<br>${feedbackLines.join('<br>')}`;
+        }
+
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+        bestEl.textContent = best;
+    }
+
+    // ========= PROBLEM GENERATORS =========
+
+    function genEasy() {
+        // 2-4 lines, basic MOV + ADD/SUB/INC/DEC, 2 registers
+        const templates = [
+            () => {
+                const a = rand(1, 50), b = rand(1, 50);
+                return { code: `mov eax, ${a}\nadd eax, ${b}`, askRegs: ['eax'] };
+            },
+            () => {
+                const a = rand(10, 100), b = rand(1, 30);
+                return { code: `mov eax, ${a}\nsub eax, ${b}`, askRegs: ['eax'] };
+            },
+            () => {
+                const a = rand(1, 50), b = rand(1, 50);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nadd eax, ebx`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(5, 50);
+                return { code: `mov eax, ${a}\ninc eax\ninc eax\ndec eax`, askRegs: ['eax'] };
+            },
+            () => {
+                const a = rand(10, 80), b = rand(10, 80);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nxchg eax, ebx`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(5, 40), b = rand(5, 40);
+                return { code: `mov ecx, ${a}\nmov edx, ${b}\nadd ecx, edx\nsub edx, 1`, askRegs: ['ecx', 'edx'] };
+            },
+            () => {
+                const a = rand(1, 30);
+                return { code: `mov eax, ${a}\nneg eax`, askRegs: ['eax'] };
+            },
+            () => {
+                const a = rand(10,50), b = rand(1,20), c = rand(1,20);
+                return { code: `mov eax, ${a}\nsub eax, ${b}\nadd eax, ${c}`, askRegs: ['eax'] };
+            },
+        ];
+        return pick(templates)();
+    }
+
+    function genMedium() {
+        // 4-6 lines, ADD/SUB/NEG/XCHG + logic (AND/OR/XOR) or shifts, 2-3 registers
+        const templates = [
+            () => {
+                const a = rand(10, 60), b = rand(10, 60);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nsub eax, ebx\nneg eax\nadd ebx, eax`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(2, 30);
+                return { code: `mov eax, ${a}\nshl eax, 2\nmov ebx, eax\nshr ebx, 1`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(100, 500), b = rand(2, 10);
+                return { code: `mov eax, ${a}\nxor edx, edx\nmov ecx, ${b}\ndiv ecx`, askRegs: ['eax', 'edx'] };
+            },
+            () => {
+                const a = rand(5, 50), b = rand(5, 50);
+                return { code: `mov eax, ${a}\nmov ecx, ${b}\nmul ecx`, askRegs: ['eax', 'edx'] };
+            },
+            () => {
+                const a = rand(0, 255), b = rand(0, 255);
+                return { code: `mov al, ${a}\nmov bl, ${b}\nand al, bl\nxor bl, al`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(10, 50), b = rand(10, 50), c = rand(1, 20);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nadd eax, ebx\nmov ecx, eax\nsub ecx, ${c}`, askRegs: ['eax', 'ecx'] };
+            },
+            () => {
+                const a = rand(0, 255), b = rand(0, 255);
+                return { code: `mov al, ${a}\nmov dl, ${b}\nor al, dl\nnot dl`, askRegs: ['eax', 'edx'] };
+            },
+            () => {
+                const a = rand(5, 40), b = rand(5, 40);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nxchg eax, ebx\nsub eax, ebx\nneg eax`, askRegs: ['eax'] };
+            },
+        ];
+        return pick(templates)();
+    }
+
+    function genHard() {
+        // 6-10 lines, MUL/DIV/IMUL + shifts + branches + multi-register, 2-3 registers
+        const templates = [
+            () => {
+                const a = rand(50, 200), b = rand(2, 8);
+                return { code: `mov eax, ${a}\nmov ecx, ${b}\nmul ecx\nshr eax, 3\ninc eax\nmov ebx, eax\nshl eax, 1`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(10, 40), b = rand(10, 40);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nsub ebx, eax\nneg ebx\nmov ecx, ebx\nadd ecx, eax\nxchg eax, ecx\nsub eax, ebx`, askRegs: ['eax', 'ebx', 'ecx'] };
+            },
+            () => {
+                const a = rand(100, 999), b = rand(2, 15);
+                return { code: `mov eax, ${a}\nmov ecx, ${b}\nxor edx, edx\ndiv ecx\nmov ebx, edx\nadd ebx, eax`, askRegs: ['eax', 'ebx', 'edx'] };
+            },
+            () => {
+                const a = rand(10, 50), b = rand(2, 6), c = rand(2, 6);
+                return { code: `mov edx, ${a}\nimul eax, edx, ${b}\nmov ecx, ${c}\nxor edx, edx\ndiv ecx\nmov ebx, edx\nadd eax, ebx`, askRegs: ['eax', 'ebx'] };
+            },
+            () => {
+                const a = rand(5, 25), b = rand(5, 25);
+                return { code: `mov eax, ${a}\nmov ebx, ${b}\nadd eax, ebx\nmov ecx, eax\nshl ecx, 1\nsub ecx, ebx\nmov edx, ecx\nshr edx, 2`, askRegs: ['ecx', 'edx'] };
+            },
+            () => {
+                const a = rand(10, 50), b = rand(10, 50);
+                const code = `mov edi, ${a}\nmov esi, ${b}\nmov ebx, esi\nsub ebx, edi\nmov ecx, ebx\nadd ecx, edi\nxchg ebx, ecx\nsub ebx, ecx`;
+                return { code, askRegs: ['ebx', 'ecx', 'edi'] };
+            },
+            () => {
+                const a = rand(0, 15), b = rand(0, 15);
+                return { code: `mov al, ${a}\nmov cl, al\nmov dl, ${b}\nand al, dl\nxor dl, cl\nmov cl, al\ninc al\ninc dl\nxor dl, al\nnot dl\nand cl, dl`, askRegs: ['eax', 'ecx', 'edx'] };
+            },
+        ];
+        return pick(templates)();
+    }
 }
