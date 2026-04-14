@@ -48,39 +48,81 @@
         <section id="home" class="section active">
             <h1>x86 Assembly Learning Lab</h1>
             <p class="intro-text">
-                An interactive companion for learning x86 assembly. Use the tools here to understand
-                how instructions work, then apply that knowledge to solve your worksheets on your own.
+                A complete interactive environment for learning x86 assembly. Step through instructions,
+                visualize the stack, quiz yourself, and explore every concept with hands-on tools.
+                Everything runs in your browser &mdash; no setup required.
             </p>
+
+            <h2 style="margin-top:1.5rem">Interactive Simulators</h2>
             <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('sandbox')">
                     <div class="feature-icon">&#9654;</div>
                     <h3>Sandbox Simulator</h3>
-                    <p>Type or paste any assembly instructions and step through them. See exactly how registers change with each instruction.</p>
+                    <p>Paste any x86 code and step through it. Full instruction support including branches, memory, stack, and calls. 23 pre-built examples.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('stack-playground')">
+                    <div class="feature-icon">&#128202;</div>
+                    <h3>Stack Playground</h3>
+                    <p>Visualize the stack in real time. 4 modes: Explore, Step-Through walkthroughs, Puzzle challenges, and "What Goes Wrong" error scenarios.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('quiz')">
+                    <div class="feature-icon">&#127942;</div>
+                    <h3>Register Quiz</h3>
+                    <p>Game-ified practice. Random problems at 3 difficulty levels. Score, streak tracking, and a timer to gauge your speed.</p>
+                </div>
+            </div>
+
+            <h2 style="margin-top:1.5rem">Tutorials</h2>
+            <div class="feature-grid">
+                <div class="feature-card" onclick="navigate('learn-registers')">
+                    <div class="feature-icon">&#128736;</div>
+                    <h3>Fundamentals</h3>
+                    <p>Register Map, Two's Complement, CPU Flags, Memory Addressing &amp; Data Sizes. The building blocks of assembly.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-arithmetic')">
                     <div class="feature-icon">&#43;</div>
-                    <h3>Learn Concepts</h3>
-                    <p>Interactive tutorials covering arithmetic, logic, shifts, branching, and stack operations with practice exercises.</p>
+                    <h3>Instructions</h3>
+                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. Each with inline mini-simulators.</p>
                 </div>
+                <div class="feature-card" onclick="navigate('learn-func-analysis')">
+                    <div class="feature-icon">&#128269;</div>
+                    <h3>Analysis Skills</h3>
+                    <p>Functional Analysis (reading a function and summarizing it) and Control Structures (if/else, loops, switch/jump tables) in assembly.</p>
+                </div>
+            </div>
+
+            <h2 style="margin-top:1.5rem">Tools &amp; Reference</h2>
+            <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('reference')">
                     <div class="feature-icon">&#128214;</div>
                     <h3>Instruction Reference</h3>
-                    <p>Quick-lookup guide for every instruction you'll encounter. Plain English explanations with examples.</p>
+                    <p>Searchable lookup for every instruction &mdash; operands, flags, behavior, examples. Quick answers when you need them.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('number-converter')">
                     <div class="feature-icon">&#128290;</div>
-                    <h3>Number Tools</h3>
-                    <p>Convert between decimal, hex, and binary. Visualize bitwise operations. Essential for assembly work.</p>
+                    <h3>Number Converter</h3>
+                    <p>Live conversion between decimal, hex, and binary. Signed/unsigned, 8/16/32-bit. Paste any format to see all representations.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('bitwise-calc')">
+                    <div class="feature-icon">&#9881;</div>
+                    <h3>Bitwise Calculator</h3>
+                    <p>Visualize AND, OR, XOR, and NOT operations bit by bit with color-coded results. Perfect for bitwise logic problems.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('endianness')">
+                    <div class="feature-icon">&#128259;</div>
+                    <h3>Endianness Guide</h3>
+                    <p>Interactive byte-order explorer. Type any hex value and see how it's stored in little-endian vs big-endian memory.</p>
                 </div>
             </div>
+
             <div class="tip-box">
-                <h3>How to use this with your worksheet</h3>
+                <h3>Suggested learning paths</h3>
                 <ol>
-                    <li>Read the concept tutorial for the section you're working on (e.g., "Arithmetic" for BasicMath)</li>
-                    <li>Try the practice exercises to make sure you understand the instructions</li>
-                    <li>Work through your worksheet problems on paper</li>
-                    <li>Use the <strong>Sandbox Simulator</strong> to verify your answers &mdash; paste the instructions and step through them</li>
-                    <li>If you get stuck, use the <strong>Instruction Reference</strong> to look up what an instruction does</li>
+                    <li><strong>Brand new to assembly?</strong> Start with <strong>Fundamentals &rarr; Register Map</strong>, then work through the Instruction tutorials. Try the mini-simulators embedded in each.</li>
+                    <li><strong>Want to practice?</strong> Use the <strong>Register Quiz</strong> (Easy &rarr; Medium &rarr; Hard) or the <strong>Stack Playground Puzzle mode</strong>.</li>
+                    <li><strong>Solving a specific problem?</strong> Paste the code into the <strong>Sandbox Simulator</strong> and step through it to watch registers change.</li>
+                    <li><strong>Learning the stack specifically?</strong> The <strong>Stack Playground</strong> Explore mode with its key facts card is the most visual way to understand it.</li>
+                    <li><strong>Stuck on an instruction?</strong> The <strong>Instruction Reference</strong> has every instruction with examples &mdash; searchable.</li>
                 </ol>
             </div>
         </section>
