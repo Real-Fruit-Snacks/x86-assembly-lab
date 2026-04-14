@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
             contentEl.style.marginLeft = '0';
             contentEl.style.maxWidth = '1400px';
             toggleBtn.style.left = '0.6rem';
-            toggleBtn.innerHTML = '&#9776;';
+            toggleBtn.innerHTML = '&gt;';
             toggleBtn.setAttribute('aria-label', 'Expand sidebar');
         } else {
             sidebar.classList.remove('collapsed');
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             contentEl.style.marginLeft = '';
             contentEl.style.maxWidth = '';
             toggleBtn.style.left = '';
-            toggleBtn.innerHTML = '&laquo;';
+            toggleBtn.innerHTML = '&lt;';
             toggleBtn.setAttribute('aria-label', 'Collapse sidebar');
         }
         // Force a reflow to ensure the browser applies the changes
@@ -2635,7 +2635,7 @@ function initStackPuzzle() {
             const got = parseHex(inp.value);
             if (got === p.expected.esp) {
                 inp.classList.add('correct');
-                feedbackLines.push(`<span class="answer-line"><span class="val-correct">ESP = 0x${p.expected.esp.toString(16).toUpperCase()} ✓</span></span>`);
+                feedbackLines.push(`<span class="answer-line"><span class="val-correct">ESP = 0x${p.expected.esp.toString(16).toUpperCase()} (correct)</span></span>`);
             } else {
                 allOk = false;
                 inp.classList.add('wrong');
@@ -2647,7 +2647,7 @@ function initStackPuzzle() {
             const got = parseHex(inp.value);
             if (got === p.expected.ebp) {
                 inp.classList.add('correct');
-                feedbackLines.push(`<span class="answer-line"><span class="val-correct">EBP = 0x${p.expected.ebp.toString(16).toUpperCase()} ✓</span></span>`);
+                feedbackLines.push(`<span class="answer-line"><span class="val-correct">EBP = 0x${p.expected.ebp.toString(16).toUpperCase()} (correct)</span></span>`);
             } else {
                 allOk = false;
                 inp.classList.add('wrong');
@@ -2660,7 +2660,7 @@ function initStackPuzzle() {
             const expected = String(p.expected.top);
             if (got === expected || parseInt(got) === parseInt(expected)) {
                 inp.classList.add('correct');
-                feedbackLines.push(`<span class="answer-line"><span class="val-correct">[ESP] = ${expected} ✓</span></span>`);
+                feedbackLines.push(`<span class="answer-line"><span class="val-correct">[ESP] = ${expected} (correct)</span></span>`);
             } else {
                 allOk = false;
                 inp.classList.add('wrong');
@@ -2672,7 +2672,7 @@ function initStackPuzzle() {
             const got = parseInt(inp.value);
             if (got === p.expected.bytes) {
                 inp.classList.add('correct');
-                feedbackLines.push(`<span class="answer-line"><span class="val-correct">Bytes net = ${p.expected.bytes} ✓</span></span>`);
+                feedbackLines.push(`<span class="answer-line"><span class="val-correct">Bytes net = ${p.expected.bytes} (correct)</span></span>`);
             } else {
                 allOk = false;
                 inp.classList.add('wrong');

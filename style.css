@@ -218,7 +218,6 @@ p { margin-bottom: 0.7rem; }
     transition: border-color 0.2s;
 }
 .feature-card:hover { border-color: var(--accent); }
-.feature-icon { font-size: 1.6rem; margin-bottom: 0.4rem; }
 .feature-card h3 { font-size: 0.92rem; margin: 0 0 0.3rem; color: var(--text); }
 .feature-card p { font-size: 0.82rem; color: var(--text-dim); margin: 0; }
 
