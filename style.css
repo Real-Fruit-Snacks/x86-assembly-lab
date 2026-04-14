@@ -849,6 +849,338 @@ p { margin-bottom: 0.7rem; }
     line-height: 1.5;
 }
 
+/* === Stack Playground Mode Tabs === */
+.sp-mode-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 8px;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+}
+.sp-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 0.5rem 0.8rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+.sp-tab:hover { color: var(--text); background: var(--bg-hover); }
+.sp-tab.active { background: var(--accent-dim); color: var(--text); }
+
+/* Explanation box */
+.sp-explain-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-top: 0.8rem;
+}
+.sp-explain-box h4 {
+    margin: 0 0 0.4rem;
+    font-size: 0.82rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.sp-explain-asm {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--green);
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    background: var(--bg);
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+.sp-explain-desc {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+}
+.sp-explain-desc strong { color: var(--text); }
+.sp-explain-desc .step {
+    display: block;
+    padding: 0.15rem 0;
+}
+.sp-explain-desc .step-num {
+    display: inline-block;
+    width: 18px; height: 18px;
+    background: var(--accent-dim);
+    color: var(--text);
+    border-radius: 50%;
+    text-align: center;
+    font-size: 0.72rem;
+    line-height: 18px;
+    margin-right: 0.4rem;
+    font-weight: 700;
+}
+
+/* Step-Through mode */
+.sp-step-controls {
+    display: flex;
+    gap: 0.3rem;
+    margin: 0.5rem 0;
+}
+.sp-step-controls .sim-btn { flex: 1; }
+.sp-step-progress {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+}
+.sp-step-bar {
+    background: var(--bg);
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 0.3rem;
+    overflow: hidden;
+}
+.sp-step-bar > div {
+    background: var(--accent);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+.sp-step-code-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.sp-step-code-box h4 {
+    margin: 0;
+    padding: 0.5rem 0.8rem;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+.sp-step-code {
+    padding: 0.5rem 0;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.sp-step-code-line {
+    padding: 0.2rem 0.8rem;
+    transition: background 0.2s;
+    white-space: pre;
+}
+.sp-step-code-line.current { background: rgba(88,166,255,0.15); border-left: 3px solid var(--accent); }
+.sp-step-code-line.executed { opacity: 0.5; }
+.sp-step-code-line.label { color: var(--red); font-style: italic; }
+.sp-step-code-line.comment { color: var(--text-dim); font-style: italic; }
+
+/* Error mode */
+.sp-error-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.7rem;
+    margin: 0.5rem 0;
+}
+.sp-error-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.sp-error-card:hover { border-color: #f38ba8; transform: translateY(-1px); }
+.sp-error-card h4 { margin: 0 0 0.4rem; font-size: 0.9rem; color: #f38ba8; }
+.sp-error-card p { margin: 0; font-size: 0.82rem; color: var(--text-dim); line-height: 1.45; }
+.sp-error-detail {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+}
+.sp-error-detail h3 { margin: 0.5rem 0 0.5rem; color: #f38ba8; }
+.sp-error-step {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.sp-error-step strong { color: var(--accent); }
+.sp-error-step code {
+    background: var(--bg-hover);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+}
+.sp-error-step.bad { border-color: rgba(243,139,168,0.4); background: rgba(243,139,168,0.05); }
+.sp-error-step.bad strong { color: #f38ba8; }
+
+/* Puzzle code display */
+.sp-puzzle-ops {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    white-space: pre;
+}
+.sp-puzzle-initial {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(88,166,255,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+}
+
+/* === Stack Playground: Learning Features === */
+.sp-facts-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(88,166,255,0.25);
+    border-radius: 8px;
+    padding: 0;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+.sp-facts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.9rem;
+    background: rgba(88,166,255,0.08);
+    border-bottom: 1px solid rgba(88,166,255,0.15);
+}
+.sp-facts-header h4 {
+    margin: 0;
+    color: var(--accent);
+    font-size: 0.88rem;
+}
+.sp-facts-body {
+    padding: 0.8rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.6rem;
+}
+.sp-facts-body.collapsed { display: none; }
+.sp-fact {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+}
+.sp-fact strong { color: var(--text); }
+.sp-fact code {
+    background: var(--bg);
+    padding: 0.08em 0.3em;
+    border-radius: 3px;
+    font-size: 0.88em;
+}
+.sp-fact-num {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    background: var(--accent-dim);
+    color: var(--text);
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-top: 0.1rem;
+}
+
+.sp-quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+.sp-chip-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-right: 0.2rem;
+}
+.sp-chip {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--purple);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    transition: all 0.15s;
+}
+.sp-chip:hover { border-color: var(--accent); color: var(--text); background: var(--bg-hover); }
+
+.sp-scenario-objective {
+    background: rgba(166,227,161,0.06);
+    border-left: 3px solid var(--green);
+    border-radius: 0 4px 4px 0;
+    padding: 0.5rem 0.7rem;
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    display: none;
+}
+.sp-scenario-objective.visible { display: block; }
+.sp-scenario-objective strong { color: var(--green); }
+
+/* === Stack Playground GP Registers & Exec === */
+.sp-gp-registers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+.sp-gp-reg {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.35rem 0.55rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    transition: background 0.3s;
+}
+.sp-gp-reg.changed {
+    background: rgba(88,166,255,0.15);
+    animation: regFlash 0.5s ease;
+}
+.sp-gp-reg-name { color: var(--purple); font-weight: 600; }
+.sp-gp-reg-val { color: var(--text); }
+
+.sp-exec-row input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+}
+.sp-exec-row input:focus { outline: none; border-color: var(--accent); }
+
 /* === Stack Playground === */
 .sp-layout {
     display: grid;

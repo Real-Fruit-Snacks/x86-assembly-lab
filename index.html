@@ -310,103 +310,270 @@ Examples:
         <!-- Stack Playground -->
         <section id="stack-playground" class="section">
             <h1>Stack Playground</h1>
-            <p>Visualize how the stack works. Click buttons to push, pop, call, and return. Watch ESP and EBP move in real time.</p>
+            <p>Visualize how the stack works. See registers, cells, and assembly equivalents update in real time.</p>
 
-            <div class="sp-layout">
-                <div class="sp-controls-col">
-                    <div class="sp-scenarios">
-                        <label>Scenario:</label>
-                        <select id="sp-scenario">
-                            <option value="empty">Empty stack (start fresh)</option>
-                            <option value="push-pop">Simple PUSH/POP</option>
-                            <option value="function-call">Function call setup</option>
-                            <option value="nested-call">Nested function calls</option>
-                            <option value="local-vars">Function with local variables</option>
-                            <option value="args-call">Call with 3 arguments</option>
-                        </select>
-                        <button id="sp-load" class="sim-btn">Load</button>
+            <div class="sp-mode-tabs">
+                <button class="sp-tab active" data-mode="explore">Explore</button>
+                <button class="sp-tab" data-mode="stepthrough">Step-Through</button>
+                <button class="sp-tab" data-mode="puzzle">Puzzle</button>
+                <button class="sp-tab" data-mode="errors">What Goes Wrong</button>
+            </div>
+
+            <!-- Explore Mode (existing + enhancements) -->
+            <div class="sp-mode" id="sp-mode-explore">
+                <!-- Key facts card for beginners -->
+                <div class="sp-facts-card">
+                    <div class="sp-facts-header">
+                        <h4>Key Facts About the Stack</h4>
+                        <button class="sref-toggle sim-btn" id="sp-facts-toggle">Hide</button>
+                    </div>
+                    <div class="sp-facts-body" id="sp-facts-body">
+                        <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>The stack grows DOWNWARD in memory.</strong> PUSH decreases ESP by 4. POP increases it by 4. Higher addresses are "older" data.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>ESP always points to the top of the stack</strong> — the lowest-address used slot. Reading from [ESP] gives you the most recently pushed value.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">3</span><div><strong>EBP is your frame anchor.</strong> After the prologue, <code>[ebp-4]</code> is your first local variable and <code>[ebp+8]</code> is your first function argument.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">4</span><div><strong>CALL pushes the return address</strong> automatically. RET pops it back. This is how functions return to where they were called from.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">5</span><div><strong>LIFO (Last In, First Out):</strong> if you push 10, 20, 30 and pop three times, you get 30, 20, 10 in that order.</div></div>
+                    </div>
+                </div>
+
+                <div class="sp-layout">
+                    <div class="sp-controls-col">
+                        <div class="sp-scenarios">
+                            <label>Scenario:</label>
+                            <select id="sp-scenario">
+                                <option value="empty">Empty stack (start fresh)</option>
+                                <option value="push-pop">Simple PUSH/POP</option>
+                                <option value="function-call">Function call setup</option>
+                                <option value="nested-call">Nested function calls</option>
+                                <option value="local-vars">Function with local variables</option>
+                                <option value="args-call">Call with 3 arguments</option>
+                            </select>
+                            <button id="sp-load" class="sim-btn">Load</button>
+                        </div>
+
+                        <div class="sp-action-panel">
+                            <h4>Actions</h4>
+                            <div class="sp-action-group">
+                                <p class="sp-group-label">Stack operations</p>
+                                <div class="sp-action-row">
+                                    <input type="text" id="sp-push-val" placeholder="Value" value="42">
+                                    <button class="sim-btn sp-btn" data-action="push">PUSH</button>
+                                </div>
+                                <div class="sp-action-row">
+                                    <select id="sp-pop-reg">
+                                        <option value="eax">EAX</option>
+                                        <option value="ebx">EBX</option>
+                                        <option value="ecx">ECX</option>
+                                        <option value="edx">EDX</option>
+                                        <option value="ebp">EBP</option>
+                                    </select>
+                                    <button class="sim-btn sp-btn" data-action="pop">POP</button>
+                                </div>
+                            </div>
+
+                            <div class="sp-action-group">
+                                <p class="sp-group-label">Read from stack</p>
+                                <div class="sp-action-row">
+                                    <select id="sp-read-base">
+                                        <option value="ebp">[ebp</option>
+                                        <option value="esp">[esp</option>
+                                    </select>
+                                    <input type="text" id="sp-read-offset" placeholder="offset" value="-4" style="width:65px">
+                                    <button class="sim-btn sp-btn" data-action="read">READ</button>
+                                </div>
+                                <p class="sp-hint" style="margin:0.3rem 0 0">Common: [ebp-4]=local, [ebp+8]=arg1, [ebp+12]=arg2</p>
+                            </div>
+
+                            <div class="sp-action-group">
+                                <p class="sp-group-label">Function calls</p>
+                                <div class="sp-action-row">
+                                    <input type="text" id="sp-call-name" placeholder="func_name" value="myfunc">
+                                    <button class="sim-btn sp-btn" data-action="call">CALL</button>
+                                </div>
+                                <div class="sp-action-row">
+                                    <button class="sim-btn sp-btn sp-full-btn" data-action="ret">RET</button>
+                                </div>
+                            </div>
+
+                            <div class="sp-action-group">
+                                <p class="sp-group-label">Stack frame</p>
+                                <div class="sp-action-row">
+                                    <button class="sim-btn sp-btn" data-action="prologue">PROLOGUE</button>
+                                    <span class="sp-hint">push ebp; mov ebp, esp</span>
+                                </div>
+                                <div class="sp-action-row">
+                                    <input type="text" id="sp-local-bytes" placeholder="Bytes" value="8" style="width:60px">
+                                    <button class="sim-btn sp-btn" data-action="alloc">ALLOC</button>
+                                    <span class="sp-hint">sub esp, N</span>
+                                </div>
+                                <div class="sp-action-row">
+                                    <button class="sim-btn sp-btn sp-full-btn" data-action="leave">LEAVE</button>
+                                    <span class="sp-hint">mov esp, ebp; pop ebp</span>
+                                </div>
+                            </div>
+
+                            <div class="sp-action-group">
+                                <p class="sp-group-label">Execute any instruction</p>
+                                <div class="sp-action-row sp-exec-row">
+                                    <input type="text" id="sp-exec-input" placeholder="e.g. mov [ebp-4], eax" autocomplete="off">
+                                </div>
+                                <button class="sim-btn sp-btn sp-full-btn primary" data-action="exec">EXECUTE</button>
+                                <div class="sp-quick-chips" id="sp-quick-chips">
+                                    <span class="sp-chip-label">Try:</span>
+                                    <button class="sp-chip" data-chip="mov eax, 42">mov eax, 42</button>
+                                    <button class="sp-chip" data-chip="add eax, 5">add eax, 5</button>
+                                    <button class="sp-chip" data-chip="mov [ebp-4], eax">mov [ebp-4], eax</button>
+                                    <button class="sp-chip" data-chip="mov eax, [ebp-4]">mov eax, [ebp-4]</button>
+                                    <button class="sp-chip" data-chip="sub esp, 8">sub esp, 8</button>
+                                    <button class="sp-chip" data-chip="xor eax, eax">xor eax, eax</button>
+                                    <button class="sp-chip" data-chip="imul eax, 3">imul eax, 3</button>
+                                </div>
+                                <p class="sp-hint" style="margin:0.4rem 0 0">Supports all x86 instructions from the Sandbox: MOV, ADD, SUB, MUL, DIV, IMUL, IDIV, XOR, AND, OR, NOT, SHL, SHR, SAR, LEA, CDQ, TEST, CMP, etc.</p>
+                            </div>
+
+                            <div class="sp-action-group">
+                                <button id="sp-reset" class="sim-btn danger sp-full-btn" style="margin-top:0.3rem">Reset</button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="sp-action-panel">
-                        <h4>Actions</h4>
-                        <div class="sp-action-group">
-                            <p class="sp-group-label">Stack operations</p>
-                            <div class="sp-action-row">
-                                <input type="text" id="sp-push-val" placeholder="Value" value="42">
-                                <button class="sim-btn sp-btn" data-action="push">PUSH</button>
-                            </div>
-                            <div class="sp-action-row">
-                                <select id="sp-pop-reg">
-                                    <option value="eax">EAX</option>
-                                    <option value="ebx">EBX</option>
-                                    <option value="ecx">ECX</option>
-                                    <option value="edx">EDX</option>
-                                    <option value="ebp">EBP</option>
-                                </select>
-                                <button class="sim-btn sp-btn" data-action="pop">POP</button>
-                            </div>
+                    <div class="sp-visual-col">
+                        <div class="sp-registers">
+                            <div class="sp-reg"><span class="sp-reg-name">ESP</span><span class="sp-reg-val" id="sp-esp">0x00200000</span></div>
+                            <div class="sp-reg"><span class="sp-reg-name">EBP</span><span class="sp-reg-val" id="sp-ebp">0x00000000</span></div>
                         </div>
-
-                        <div class="sp-action-group">
-                            <p class="sp-group-label">Function calls</p>
-                            <div class="sp-action-row">
-                                <input type="text" id="sp-call-name" placeholder="func_name" value="myfunc">
-                                <button class="sim-btn sp-btn" data-action="call">CALL</button>
-                            </div>
-                            <div class="sp-action-row">
-                                <button class="sim-btn sp-btn sp-full-btn" data-action="ret">RET</button>
-                            </div>
-                        </div>
-
-                        <div class="sp-action-group">
-                            <p class="sp-group-label">Stack frame</p>
-                            <div class="sp-action-row">
-                                <button class="sim-btn sp-btn" data-action="prologue">PROLOGUE</button>
-                                <span class="sp-hint">push ebp; mov ebp, esp</span>
-                            </div>
-                            <div class="sp-action-row">
-                                <input type="text" id="sp-local-bytes" placeholder="Bytes" value="8" style="width:60px">
-                                <button class="sim-btn sp-btn" data-action="alloc">ALLOC</button>
-                                <span class="sp-hint">sub esp, N</span>
-                            </div>
-                            <div class="sp-action-row">
-                                <button class="sim-btn sp-btn sp-full-btn" data-action="leave">LEAVE</button>
-                                <span class="sp-hint">mov esp, ebp; pop ebp</span>
-                            </div>
-                        </div>
-
-                        <div class="sp-action-group">
-                            <button id="sp-reset" class="sim-btn danger sp-full-btn" style="margin-top:0.3rem">Reset</button>
+                        <div class="sp-gp-registers" id="sp-gp-regs"></div>
+                        <div class="sp-stack-wrapper">
+                            <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
+                            <div id="sp-stack" class="sp-stack"></div>
+                            <div class="sp-stack-label sp-low">Lower addresses &darr; (stack grows this way)</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="sp-visual-col">
-                    <div class="sp-registers">
-                        <div class="sp-reg"><span class="sp-reg-name">ESP</span><span class="sp-reg-val" id="sp-esp">0x00200000</span></div>
-                        <div class="sp-reg"><span class="sp-reg-name">EBP</span><span class="sp-reg-val" id="sp-ebp">0x00000000</span></div>
+                <!-- Contextual explanation panel -->
+                <div class="sp-explain-box" id="sp-explain">
+                    <h4>What's Happening</h4>
+                    <div class="sp-explain-asm" id="sp-explain-asm">&mdash;</div>
+                    <div class="sp-explain-desc" id="sp-explain-desc">
+                        Click any action button to see the assembly equivalent and a step-by-step explanation of what happened to ESP, EBP, and the stack.
                     </div>
-                    <div class="sp-stack-wrapper">
-                        <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
-                        <div id="sp-stack" class="sp-stack"></div>
-                        <div class="sp-stack-label sp-low">Lower addresses &darr; (stack grows this way)</div>
-                    </div>
+                </div>
+
+                <div class="sp-log-box">
+                    <h4>Action Log</h4>
+                    <div id="sp-log" class="sp-log"></div>
                 </div>
             </div>
 
-            <div class="sp-log-box">
-                <h4>Action Log</h4>
-                <div id="sp-log" class="sp-log"></div>
+            <!-- Step-Through Mode -->
+            <div class="sp-mode" id="sp-mode-stepthrough" style="display:none">
+                <div class="sp-layout">
+                    <div class="sp-controls-col">
+                        <div class="sp-scenarios">
+                            <label>Walkthrough:</label>
+                            <select id="sp-step-scenario">
+                                <option value="full-function">Full function call (caller + callee)</option>
+                                <option value="prologue-epilogue">Prologue &amp; Epilogue</option>
+                                <option value="args-read">Reading arguments inside a function</option>
+                                <option value="local-write-read">Write &amp; read local variables</option>
+                                <option value="lifo">LIFO demonstration</option>
+                            </select>
+                            <button id="sp-step-load" class="sim-btn">Load</button>
+                        </div>
+                        <div class="sp-step-controls">
+                            <button id="sp-step-prev" class="sim-btn" disabled>&larr; Prev</button>
+                            <button id="sp-step-next" class="sim-btn primary" disabled>Next &rarr;</button>
+                            <button id="sp-step-reset" class="sim-btn danger">Reset</button>
+                        </div>
+                        <div class="sp-step-progress">
+                            <span id="sp-step-counter">Step 0 / 0</span>
+                            <div class="sp-step-bar"><div id="sp-step-bar-fill" style="width:0%"></div></div>
+                        </div>
+                        <div class="sp-step-code-box">
+                            <h4>Program</h4>
+                            <div id="sp-step-code" class="sp-step-code"></div>
+                        </div>
+                    </div>
+
+                    <div class="sp-visual-col">
+                        <div class="sp-registers">
+                            <div class="sp-reg"><span class="sp-reg-name">ESP</span><span class="sp-reg-val" id="sp-step-esp">0x00200000</span></div>
+                            <div class="sp-reg"><span class="sp-reg-name">EBP</span><span class="sp-reg-val" id="sp-step-ebp">0x00000000</span></div>
+                        </div>
+                        <div class="sp-stack-wrapper">
+                            <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
+                            <div id="sp-step-stack" class="sp-stack"></div>
+                            <div class="sp-stack-label sp-low">Lower addresses &darr;</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sp-explain-box">
+                    <h4>Step Explanation</h4>
+                    <div class="sp-explain-asm" id="sp-step-asm">&mdash;</div>
+                    <div class="sp-explain-desc" id="sp-step-desc">Select a walkthrough and click Load to begin, then use Next/Prev to step through.</div>
+                </div>
+            </div>
+
+            <!-- Puzzle Mode -->
+            <div class="sp-mode" id="sp-mode-puzzle" style="display:none">
+                <div class="quiz-stats">
+                    <div class="quiz-stat"><span class="quiz-stat-label">Score</span><span id="sp-puzzle-score" class="quiz-stat-val">0</span></div>
+                    <div class="quiz-stat"><span class="quiz-stat-label">Streak</span><span id="sp-puzzle-streak" class="quiz-stat-val">0</span></div>
+                    <div class="quiz-stat"><span class="quiz-stat-label">Best</span><span id="sp-puzzle-best" class="quiz-stat-val">0</span></div>
+                </div>
+                <div class="quiz-controls">
+                    <button id="sp-puzzle-new" class="sim-btn primary">New Puzzle</button>
+                </div>
+                <div id="sp-puzzle-area" class="quiz-area">
+                    <div class="quiz-placeholder">Click <strong>New Puzzle</strong> to start. You'll see a sequence of stack operations — predict the final ESP, EBP, and top-of-stack value.</div>
+                </div>
+            </div>
+
+            <!-- Errors Mode -->
+            <div class="sp-mode" id="sp-mode-errors" style="display:none">
+                <p style="margin-bottom:0.8rem">Learn what goes wrong when the stack isn't managed correctly. Click a scenario to see it fail in slow motion.</p>
+                <div class="sp-error-grid">
+                    <div class="sp-error-card" data-error="unbalanced-pop">
+                        <h4>Unbalanced POP</h4>
+                        <p>What happens when you POP more than you PUSHed?</p>
+                    </div>
+                    <div class="sp-error-card" data-error="missing-prologue">
+                        <h4>Missing Prologue</h4>
+                        <p>A function that forgets <code>push ebp; mov ebp, esp</code> — how arg/local access breaks.</p>
+                    </div>
+                    <div class="sp-error-card" data-error="missing-cleanup">
+                        <h4>Missing Caller Cleanup</h4>
+                        <p>Forgetting to <code>add esp, N</code> after a call — arguments pile up on the stack.</p>
+                    </div>
+                    <div class="sp-error-card" data-error="ret-no-pushed-ret">
+                        <h4>RET Without Return Address</h4>
+                        <p>Returning when the top of stack isn't a return address — you jump to garbage.</p>
+                    </div>
+                    <div class="sp-error-card" data-error="wrong-leave">
+                        <h4>LEAVE Without Prologue</h4>
+                        <p>What LEAVE does when no stack frame was set up.</p>
+                    </div>
+                    <div class="sp-error-card" data-error="stack-overflow">
+                        <h4>Stack Overflow</h4>
+                        <p>Recursing too deep: ESP keeps decreasing until it hits nothing.</p>
+                    </div>
+                </div>
+                <div class="sp-error-detail" id="sp-error-detail" style="display:none">
+                    <button class="sim-btn" id="sp-error-back">&larr; Back to scenarios</button>
+                    <h3 id="sp-error-title"></h3>
+                    <div class="sp-error-steps" id="sp-error-steps"></div>
+                </div>
             </div>
 
             <div class="concept-box" style="margin-top:1rem">
                 <h3>Try These Experiments</h3>
                 <ul>
-                    <li><strong>PUSH 3 values, then POP them</strong> &mdash; notice they come out in reverse order (LIFO: Last In, First Out)</li>
-                    <li><strong>Load "Function call setup"</strong> and step through one action at a time to see how a call frame is built</li>
-                    <li><strong>Compare ALLOC to PUSH</strong> &mdash; ALLOC reserves space without writing values, PUSH stores a value</li>
-                    <li><strong>Use LEAVE after a prologue</strong> &mdash; see how it restores both ESP and EBP in one step</li>
-                    <li><strong>Load "Nested calls"</strong> to see multiple return addresses stacked</li>
+                    <li><strong>PUSH 3 values, then POP them</strong> &mdash; notice they come out in reverse order (LIFO)</li>
+                    <li><strong>Step-Through mode</strong> walks you through a full function call one instruction at a time</li>
+                    <li><strong>Puzzle mode</strong> gives you a sequence of ops and asks you to predict the result</li>
+                    <li><strong>What Goes Wrong</strong> demonstrates common bugs and how they break the stack</li>
+                    <li><strong>Use READ</strong> to simulate <code>mov eax, [ebp-4]</code> (reading a local) or <code>[ebp+8]</code> (reading an argument)</li>
                 </ul>
             </div>
         </section>
