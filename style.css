@@ -46,6 +46,55 @@ body {
     min-height: 100vh;
 }
 
+/* === Catppuccin Mocha Scrollbars === */
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface2) var(--mantle);
+}
+/* WebKit (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: var(--mantle);
+    border-radius: 5px;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--surface2);
+    border-radius: 5px;
+    border: 2px solid var(--mantle);
+    transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--overlay0);
+}
+::-webkit-scrollbar-thumb:active {
+    background: var(--accent);
+}
+::-webkit-scrollbar-corner {
+    background: var(--mantle);
+}
+/* Slimmer scrollbars inside small panels */
+.sim-reg-body::-webkit-scrollbar,
+.sp-log::-webkit-scrollbar,
+.sp-step-code::-webkit-scrollbar,
+.sandbox-trace::-webkit-scrollbar,
+.code-block::-webkit-scrollbar,
+.sp-stack-body::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.sim-reg-body::-webkit-scrollbar-thumb,
+.sp-log::-webkit-scrollbar-thumb,
+.sp-step-code::-webkit-scrollbar-thumb,
+.sandbox-trace::-webkit-scrollbar-thumb,
+.code-block::-webkit-scrollbar-thumb,
+.sp-stack-body::-webkit-scrollbar-thumb {
+    border: 1px solid var(--mantle);
+}
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
@@ -1362,6 +1411,21 @@ p { margin-bottom: 0.7rem; }
 .sp-cell-addr { color: var(--text-dim); font-size: 0.72rem; }
 .sp-cell-value { color: var(--text); font-weight: 600; }
 .sp-cell-label { color: var(--text-dim); font-size: 0.72rem; font-style: italic; }
+.sp-cell-frame {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+    background: rgba(137,180,250,0.1);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    margin-right: 0.25rem;
+}
+.sp-cell-meaning {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    font-style: italic;
+}
 .sp-cell-pointer { color: var(--accent); font-weight: 700; font-size: 0.75rem; }
 
 .sp-empty-stack {

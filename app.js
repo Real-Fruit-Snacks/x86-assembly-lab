@@ -1404,8 +1404,35 @@ function initStackPlayground() {
 
     function fmtAddr(a) { return '0x' + (a >>> 0).toString(16).toUpperCase().padStart(8, '0'); }
 
+    // Compute [ebp+/-N] or [esp+N] label for a stack address based on current frame
+    function computeFrameLabel(addr, st) {
+        if (st.ebp && st.ebp !== 0) {
+            const offset = addr - st.ebp;
+            if (offset === 0) return '[ebp]';
+            if (offset > 0) return `[ebp+${offset}]`;
+            return `[ebp${offset}]`; // negative shows like [ebp-4]
+        }
+        // No EBP frame: use ESP-relative
+        const espOffset = addr - st.esp;
+        if (espOffset === 0) return '[esp]';
+        if (espOffset > 0) return `[esp+${espOffset}]`;
+        return `[esp${espOffset}]`;
+    }
+
+    // Annotate a frame label with its semantic role
+    function frameLabelMeaning(addr, st) {
+        if (!st.ebp || st.ebp === 0) return '';
+        const offset = addr - st.ebp;
+        if (offset === 0) return 'saved EBP';
+        if (offset === 4) return 'return address';
+        if (offset >= 8) return `arg ${(offset - 8) / 4 + 1}`;
+        if (offset < 0) return `local ${-offset / 4}`;
+        return '';
+    }
+
     function renderStackCells(st) {
-        const sorted = [...st.stack].sort((a, b) => b.addr - a.addr);
+        // Lowest address first (most recently pushed) = visual top of stack
+        const sorted = [...st.stack].sort((a, b) => a.addr - b.addr);
         return sorted.map(entry => {
             const isEsp = entry.addr === st.esp;
             const isEbp = entry.addr === st.ebp && st.ebp !== 0;
@@ -1420,11 +1447,19 @@ function initStackPlayground() {
             if (isEsp) pointers.push('&larr; ESP');
             if (isEbp) pointers.push('&larr; EBP');
 
+            // Auto-compute frame label based on current EBP (always accurate)
+            const frameLabel = computeFrameLabel(entry.addr, st);
+            const meaning = frameLabelMeaning(entry.addr, st);
+            // Combine the auto label with any manual annotation
+            let labelHtml = `<span class="sp-cell-frame">${frameLabel}</span>`;
+            if (meaning) labelHtml += ` <span class="sp-cell-meaning">${meaning}</span>`;
+            else if (entry.label) labelHtml += ` <span class="sp-cell-meaning">${entry.label}</span>`;
+
             const valDisplay = typeof entry.value === 'string' ? entry.value : (entry.value >>> 0).toString();
             return `<div class="${cls}">
                 <span class="sp-cell-addr">${fmtAddr(entry.addr)}</span>
                 <span class="sp-cell-value">${valDisplay}</span>
-                <span class="sp-cell-label">${entry.label || ''}</span>
+                <span class="sp-cell-label">${labelHtml}</span>
                 <span class="sp-cell-pointer">${pointers.join(' ')}</span>
             </div>`;
         }).join('');
@@ -2073,6 +2108,29 @@ function initStepThrough() {
         }
     }
 
+    // Reuse the same frame label logic
+    function spFrameLabel(addr, st) {
+        if (st.ebp && st.ebp !== 0) {
+            const offset = addr - st.ebp;
+            if (offset === 0) return '[ebp]';
+            if (offset > 0) return `[ebp+${offset}]`;
+            return `[ebp${offset}]`;
+        }
+        const espOffset = addr - st.esp;
+        if (espOffset === 0) return '[esp]';
+        if (espOffset > 0) return `[esp+${espOffset}]`;
+        return `[esp${espOffset}]`;
+    }
+    function spFrameMeaning(addr, st) {
+        if (!st.ebp || st.ebp === 0) return '';
+        const offset = addr - st.ebp;
+        if (offset === 0) return 'saved EBP';
+        if (offset === 4) return 'return address';
+        if (offset >= 8) return `arg ${(offset - 8) / 4 + 1}`;
+        if (offset < 0) return `local ${-offset / 4}`;
+        return '';
+    }
+
     function renderStep() {
         if (!walkthrough) return;
         document.getElementById('sp-step-esp').textContent = '0x' + (stepState.esp >>> 0).toString(16).toUpperCase().padStart(8, '0');
@@ -2095,11 +2153,16 @@ function initStepThrough() {
                 const pointers = [];
                 if (isEsp) pointers.push('&larr; ESP');
                 if (isEbp) pointers.push('&larr; EBP');
+                const frameLabel = spFrameLabel(entry.addr, stepState);
+                const meaning = spFrameMeaning(entry.addr, stepState);
+                let labelHtml = `<span class="sp-cell-frame">${frameLabel}</span>`;
+                if (meaning) labelHtml += ` <span class="sp-cell-meaning">${meaning}</span>`;
+                else if (entry.label) labelHtml += ` <span class="sp-cell-meaning">${entry.label}</span>`;
                 const valDisplay = typeof entry.value === 'string' ? entry.value : (entry.value >>> 0).toString();
                 return `<div class="${cls}">
                     <span class="sp-cell-addr">0x${entry.addr.toString(16).toUpperCase().padStart(8, '0')}</span>
                     <span class="sp-cell-value">${valDisplay}</span>
-                    <span class="sp-cell-label">${entry.label || ''}</span>
+                    <span class="sp-cell-label">${labelHtml}</span>
                     <span class="sp-cell-pointer">${pointers.join(' ')}</span>
                 </div>`;
             }).join('');
