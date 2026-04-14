@@ -1297,25 +1297,22 @@ function initStackPlayground() {
             stackEl.innerHTML = renderStackCells(state);
         }
 
-        // Call stack overview panel
+        // Call stack overview panel — always visible, always starts with "main"
         const callstackPanel = document.getElementById('sp-callstack-panel');
         const callstackChain = document.getElementById('sp-callstack-chain');
         const activeFrames = (state.frames || []).filter(f => f.ebp !== 0 || f.retAddrAddr !== null);
-        if (activeFrames.length > 0 && callstackPanel && callstackChain) {
+        if (callstackPanel && callstackChain) {
             callstackPanel.style.display = '';
-            // Build chain: caller → Stack1 → Stack2 (current)
-            const chain = ['main/caller', ...activeFrames.map(f => f.name)];
+            const chain = ['main', ...activeFrames.map(f => f.name)];
             const palette = ['accent', 'mauve', 'green', 'peach', 'teal'];
             callstackChain.innerHTML = chain.map((name, i) => {
-                const isFirst = i === 0;
                 const isCurrent = i === chain.length - 1;
-                const colorIdx = (chain.length - 1) - i;
-                const color = isFirst ? 'dim' : palette[Math.min(Math.max(0, colorIdx - 1), palette.length - 1)];
+                // Innermost active frame gets the brightest color; going outward dims
+                const depthFromCurrent = chain.length - 1 - i;
+                const color = palette[Math.min(depthFromCurrent, palette.length - 1)];
                 const arrow = i < chain.length - 1 ? ' <span class="sp-callstack-arrow">&rarr;</span> ' : '';
                 return `<span class="sp-callstack-frame sp-callstack-color-${color}${isCurrent ? ' current' : ''}">${name}${isCurrent ? ' <em>(current)</em>' : ''}</span>${arrow}`;
             }).join('');
-        } else if (callstackPanel) {
-            callstackPanel.style.display = 'none';
         }
 
         const logEl = document.getElementById('sp-log');
@@ -1567,37 +1564,55 @@ function initStackPlayground() {
             currentGroup.cells.push(entry);
         }
 
-        // If no frames detected at all, fall back to single ungrouped list
-        if (activeFrames.length === 0 || groups.every(g => g.frameIdx === -1)) {
-            return sorted.map(entry => renderCell(entry, st, null, null)).join('');
+        // If no active callees, show all cells inside a "main" group
+        if (activeFrames.length === 0) {
+            if (sorted.length === 0) return '';
+            const isCurrent = true;
+            return `<div class="sp-frame-group sp-frame-color-accent">` +
+                   `<div class="sp-frame-header">main (current)</div>` +
+                   sorted.map(e => renderCell(e, st, null, 'accent')).join('') +
+                   `</div>`;
         }
 
-        // Render each group with a frame header
-        return groups.map(group => {
+        // Orphan cells (not in any known frame) = main's pre-call stuff.
+        // Render them as the "main" group before the active frames.
+        const orphanGroups = groups.filter(g => !g.frame);
+        const framedGroups = groups.filter(g => g.frame);
+
+        let output = '';
+
+        // Main group (if we have orphan cells OR no cells yet but frames exist)
+        if (orphanGroups.length > 0) {
+            // Main is the OUTERMOST frame in the chain; it's never "current" when inner frames exist
+            const orphanCells = orphanGroups.flatMap(g => g.cells);
+            // Assign main a color based on distance from current (depth 0 from innermost = accent)
+            const mainDepth = activeFrames.length;
+            const palette = ['accent', 'mauve', 'green', 'peach', 'teal'];
+            const color = palette[Math.min(mainDepth, palette.length - 1)];
+            output += `<div class="sp-frame-group sp-frame-color-${color}">` +
+                      `<div class="sp-frame-header">main</div>` +
+                      orphanCells.map(e => renderCell(e, st, null, color)).join('') +
+                      `</div>`;
+        }
+
+        // Render the named frames (Stack1, Stack2, etc.)
+        output += framedGroups.map(group => {
             const frame = group.frame;
-            if (!frame) {
-                // Cells not in any frame (e.g., leftover args from outer caller)
-                return `<div class="sp-frame-group sp-frame-outer">` +
-                       `<div class="sp-frame-header">caller / below stack</div>` +
-                       group.cells.map(e => renderCell(e, st, null, null)).join('') +
-                       `</div>`;
-            }
-            // Compare by identity since frameIdx refers to st.frames position
             const currentFrame = activeFrames[activeFrames.length - 1];
             const isCurrent = group.frame === currentFrame;
-            // Position within active frames (for coloring): 0=outermost, N=innermost (current)
             const activePos = activeFrames.indexOf(group.frame);
             const depthFromCurrent = activeFrames.length - 1 - activePos;
-            // Color palette: current=blue (accent), next=mauve, then=green, then=peach
             const palette = ['accent', 'mauve', 'green', 'peach', 'teal'];
             const color = palette[Math.min(depthFromCurrent, palette.length - 1)];
-            const depthIndent = Math.max(0, activePos); // increases with nesting
+            const depthIndent = Math.max(0, activePos) + 1; // +1 to indent relative to main
             const headerText = `${frame.name}${isCurrent ? ' (current)' : ''}`;
             return `<div class="sp-frame-group sp-frame-color-${color}" style="margin-left: ${depthIndent * 10}px">` +
                    `<div class="sp-frame-header">${headerText}</div>` +
                    group.cells.map(e => renderCell(e, st, frame, color)).join('') +
                    `</div>`;
         }).join('');
+
+        return output;
     }
 
     // Render a single cell, optionally with frame context
