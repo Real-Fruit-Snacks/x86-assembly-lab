@@ -1775,8 +1775,11 @@ function initStackPlayground() {
         if (state.ebp === 0) { log('LEAVE', 'ERROR: no stack frame to leave'); return { error: 'no-frame' }; }
         state.stack = state.stack.filter(e => e.addr >= state.ebp);
         state.esp = state.ebp;
+        // The cell at state.esp IS the saved EBP (by definition of the prologue pattern).
+        // Accept any cell here regardless of its `kind` tag (cells pushed via EXECUTE
+        // don't get tagged as 'savedebp' but they're still valid saved EBP values).
         const saved = state.stack.find(e => e.addr === state.esp);
-        if (saved && saved.kind === 'savedebp') {
+        if (saved) {
             const oldEbp = state.ebp;
             state.ebp = typeof saved.value === 'number' ? saved.value : 0;
             state.stack = state.stack.filter(e => e.addr !== state.esp);
@@ -1790,7 +1793,7 @@ function initStackPlayground() {
             // Otherwise the frame will be popped by the following RET
             return { oldEbp, newEbp: state.ebp };
         } else {
-            log('LEAVE', 'WARNING: expected saved EBP at top');
+            log('LEAVE', 'WARNING: no cell at [ebp] to pop as saved EBP');
             return { error: 'no-saved-ebp' };
         }
     }
