@@ -1263,6 +1263,9 @@ function initStackPlayground() {
             log: [],
             // Full register file synced with AsmSimulator
             regs: { eax: 0, ebx: 0, ecx: 0, edx: 0, esi: 0, edi: 0 },
+            // Frame tracking: each frame = { name, ebp, retAddrAddr, argBoundary (addr of pre-call ESP) }
+            frames: [{ name: 'caller', ebp: 0, retAddrAddr: null, argBoundary: ESP_INIT, callDepth: 0 }],
+            nextFrameId: 1,
         };
         lastExplain = null;
         changedRegs = new Set();
@@ -1279,8 +1282,11 @@ function initStackPlayground() {
         if (gpEl) {
             gpEl.innerHTML = ['eax','ebx','ecx','edx','esi','edi'].map(r => {
                 const val = (state.regs[r] || 0) >>> 0;
+                // Show signed form if high bit set: "-5 (4294967291)"
+                const signed = val >= 0x80000000 ? val - 0x100000000 : val;
+                const display = signed < 0 ? `${signed} (${val})` : String(val);
                 const cls = 'sp-gp-reg' + (changedRegs.has(r) ? ' changed' : '');
-                return `<div class="${cls}"><span class="sp-gp-reg-name">${r.toUpperCase()}</span><span class="sp-gp-reg-val">${val}</span></div>`;
+                return `<div class="${cls}"><span class="sp-gp-reg-name">${r.toUpperCase()}</span><span class="sp-gp-reg-val">${display}</span></div>`;
             }).join('');
         }
 
@@ -1289,6 +1295,27 @@ function initStackPlayground() {
             stackEl.innerHTML = '<div class="sp-empty-stack">Stack is empty. Click PUSH, PROLOGUE, or load a scenario to begin.</div>';
         } else {
             stackEl.innerHTML = renderStackCells(state);
+        }
+
+        // Call stack overview panel
+        const callstackPanel = document.getElementById('sp-callstack-panel');
+        const callstackChain = document.getElementById('sp-callstack-chain');
+        const activeFrames = (state.frames || []).filter(f => f.ebp !== 0 || f.retAddrAddr !== null);
+        if (activeFrames.length > 0 && callstackPanel && callstackChain) {
+            callstackPanel.style.display = '';
+            // Build chain: caller → Stack1 → Stack2 (current)
+            const chain = ['main/caller', ...activeFrames.map(f => f.name)];
+            const palette = ['accent', 'mauve', 'green', 'peach', 'teal'];
+            callstackChain.innerHTML = chain.map((name, i) => {
+                const isFirst = i === 0;
+                const isCurrent = i === chain.length - 1;
+                const colorIdx = (chain.length - 1) - i;
+                const color = isFirst ? 'dim' : palette[Math.min(Math.max(0, colorIdx - 1), palette.length - 1)];
+                const arrow = i < chain.length - 1 ? ' <span class="sp-callstack-arrow">&rarr;</span> ' : '';
+                return `<span class="sp-callstack-frame sp-callstack-color-${color}${isCurrent ? ' current' : ''}">${name}${isCurrent ? ' <em>(current)</em>' : ''}</span>${arrow}`;
+            }).join('');
+        } else if (callstackPanel) {
+            callstackPanel.style.display = 'none';
         }
 
         const logEl = document.getElementById('sp-log');
@@ -1304,6 +1331,30 @@ function initStackPlayground() {
     // ============ ASSEMBLY EXECUTION BRIDGE ============
     // Use AsmSimulator for arbitrary instruction execution, then sync state back
     function execAsm(line) {
+        const trimmed = line.trim();
+
+        // --- Special handling: CALL / RET don't work in single-line AsmSimulator (no label map) ---
+        // Simulate them directly so users can write `call Stack1`, `call func`, etc.
+        const callMatch = trimmed.match(/^call\s+(\w+)$/i);
+        if (callMatch) {
+            const funcName = callMatch[1];
+            doCall(funcName);
+            changedRegs = new Set();
+            return { success: true, description: `pushed return address, jumped to ${funcName}`, line };
+        }
+        if (/^(ret|retn|leave)$/i.test(trimmed)) {
+            const op = trimmed.toLowerCase();
+            if (op === 'ret' || op === 'retn') {
+                const r = doRet();
+                changedRegs = new Set();
+                return { success: true, description: r.popResult?.error ? 'ERROR: stack empty, nothing to return to' : `popped return address, returned to caller`, line };
+            } else {
+                const r = doLeave();
+                changedRegs = new Set();
+                return { success: true, description: r.error ? `ERROR: ${r.error}` : 'restored stack frame (ESP=EBP, popped saved EBP)', line };
+            }
+        }
+
         // Create a fresh simulator, load our current state into it
         const sim = new AsmSimulator();
         // Load registers
@@ -1376,7 +1427,23 @@ function initStackPlayground() {
         }
 
         state.esp = newEsp;
+        const prevEbp = state.ebp;
         state.ebp = newEbp;
+
+        // Detect manual prologue: specifically `mov ebp, esp` where EBP changed
+        // and now equals ESP (or a pending frame's expected anchor point).
+        // Only assign a pending frame's EBP if EBP actually CHANGED this instruction
+        // AND the new EBP matches the current ESP (classic prologue pattern).
+        if (state.ebp !== prevEbp && state.ebp === state.esp && state.frames.length > 0) {
+            const topFrame = state.frames[state.frames.length - 1];
+            if (topFrame.ebp === 0 && topFrame.retAddrAddr !== null) {
+                topFrame.ebp = state.ebp;
+            }
+        }
+
+        // Detect manual leave pattern (mov esp, ebp ... pop ebp):
+        // if a frame's ebp no longer matches any savedEBP on the stack, that frame's locals were torn down.
+        // (We don't auto-pop frames here — RET still handles that cleanly.)
 
         log('EXEC', `${line} → ${result.description || 'ok'}`);
 
@@ -1430,39 +1497,157 @@ function initStackPlayground() {
         return '';
     }
 
+    // Assign each cell to an owning frame.
+    // Algorithm: walk cells from HIGH to LOW address. Start with outermost active frame.
+    // For each cell, if the NEXT inner frame's highest cell (argBoundary) is >= this cell's
+    // address, move idx inward. Once inward, all subsequent (lower) cells go to that inner
+    // frame unless we move further inward.
+    function buildCellFrameMap(st) {
+        const map = new Map();
+        const activeFrames = (st.frames || []).filter(f => f.ebp !== 0 || f.retAddrAddr !== null);
+        if (activeFrames.length === 0) return map;
+
+        const sortedHighToLow = [...st.stack].sort((a, b) => b.addr - a.addr);
+        let idx = 0; // outermost active frame
+
+        for (const cell of sortedHighToLow) {
+            // Move inward if the inner frame's territory starts here
+            while (idx + 1 < activeFrames.length) {
+                const nextInner = activeFrames[idx + 1];
+                // An inner frame starts at its argBoundary (address of its topmost cell).
+                // If a cell's address is <= nextInner.argBoundary, it belongs to nextInner or deeper.
+                if (nextInner.argBoundary !== undefined && cell.addr <= nextInner.argBoundary) {
+                    idx++;
+                } else {
+                    break;
+                }
+            }
+            map.set(cell.addr, activeFrames[idx]);
+        }
+        return map;
+    }
+
+    // Legacy helper kept for other code paths (returns { frame, index } or null)
+    function cellOwnerFrame(addr, st, frameMap) {
+        const f = frameMap ? frameMap.get(addr) : null;
+        if (!f) return null;
+        const idx = st.frames.indexOf(f);
+        return { frame: f, index: idx };
+    }
+
+    // Frame-relative label: compute [ebp±N] from THAT frame's EBP, not current
+    function computeFrameRelLabel(addr, frame) {
+        if (!frame || frame.ebp === 0) return '';
+        const offset = addr - frame.ebp;
+        if (offset === 0) return '[ebp]';
+        if (offset > 0) return `[ebp+${offset}]`;
+        return `[ebp${offset}]`;
+    }
+
     function renderStackCells(st) {
         // Lowest address first (most recently pushed) = visual top of stack
         const sorted = [...st.stack].sort((a, b) => a.addr - b.addr);
-        return sorted.map(entry => {
-            const isEsp = entry.addr === st.esp;
-            const isEbp = entry.addr === st.ebp && st.ebp !== 0;
-            let cls = 'sp-cell';
-            if (isEsp && isEbp) cls += ' is-both';
-            else if (isEsp) cls += ' is-esp';
-            else if (isEbp) cls += ' is-ebp';
-            if (entry.kind) cls += ' is-' + entry.kind;
-            if (entry.highlighted) cls += ' highlighted';
 
-            const pointers = [];
-            if (isEsp) pointers.push('&larr; ESP');
-            if (isEbp) pointers.push('&larr; EBP');
+        // Active frames (skip the caller-stub placeholder)
+        const activeFrames = (st.frames || []).filter(f => f.ebp !== 0 || f.retAddrAddr !== null);
 
-            // Auto-compute frame label based on current EBP (always accurate)
-            const frameLabel = computeFrameLabel(entry.addr, st);
-            const meaning = frameLabelMeaning(entry.addr, st);
-            // Combine the auto label with any manual annotation
-            let labelHtml = `<span class="sp-cell-frame">${frameLabel}</span>`;
-            if (meaning) labelHtml += ` <span class="sp-cell-meaning">${meaning}</span>`;
-            else if (entry.label) labelHtml += ` <span class="sp-cell-meaning">${entry.label}</span>`;
+        // Build a precise addr → frame map
+        const frameMap = buildCellFrameMap(st);
 
-            const valDisplay = typeof entry.value === 'string' ? entry.value : (entry.value >>> 0).toString();
-            return `<div class="${cls}">
-                <span class="sp-cell-addr">${fmtAddr(entry.addr)}</span>
-                <span class="sp-cell-value">${valDisplay}</span>
-                <span class="sp-cell-label">${labelHtml}</span>
-                <span class="sp-cell-pointer">${pointers.join(' ')}</span>
-            </div>`;
+        // Group cells by owning frame (consecutive cells with same owner)
+        const groups = [];
+        let currentGroup = null;
+        for (const entry of sorted) {
+            const owner = frameMap.get(entry.addr) || null;
+            const frameIdx = owner ? st.frames.indexOf(owner) : -1;
+            if (!currentGroup || currentGroup.frameIdx !== frameIdx) {
+                currentGroup = { frameIdx, frame: owner, cells: [] };
+                groups.push(currentGroup);
+            }
+            currentGroup.cells.push(entry);
+        }
+
+        // If no frames detected at all, fall back to single ungrouped list
+        if (activeFrames.length === 0 || groups.every(g => g.frameIdx === -1)) {
+            return sorted.map(entry => renderCell(entry, st, null, null)).join('');
+        }
+
+        // Render each group with a frame header
+        return groups.map(group => {
+            const frame = group.frame;
+            if (!frame) {
+                // Cells not in any frame (e.g., leftover args from outer caller)
+                return `<div class="sp-frame-group sp-frame-outer">` +
+                       `<div class="sp-frame-header">caller / below stack</div>` +
+                       group.cells.map(e => renderCell(e, st, null, null)).join('') +
+                       `</div>`;
+            }
+            // Compare by identity since frameIdx refers to st.frames position
+            const currentFrame = activeFrames[activeFrames.length - 1];
+            const isCurrent = group.frame === currentFrame;
+            // Position within active frames (for coloring): 0=outermost, N=innermost (current)
+            const activePos = activeFrames.indexOf(group.frame);
+            const depthFromCurrent = activeFrames.length - 1 - activePos;
+            // Color palette: current=blue (accent), next=mauve, then=green, then=peach
+            const palette = ['accent', 'mauve', 'green', 'peach', 'teal'];
+            const color = palette[Math.min(depthFromCurrent, palette.length - 1)];
+            const depthIndent = Math.max(0, activePos); // increases with nesting
+            const headerText = `${frame.name}${isCurrent ? ' (current)' : ''}`;
+            return `<div class="sp-frame-group sp-frame-color-${color}" style="margin-left: ${depthIndent * 10}px">` +
+                   `<div class="sp-frame-header">${headerText}</div>` +
+                   group.cells.map(e => renderCell(e, st, frame, color)).join('') +
+                   `</div>`;
         }).join('');
+    }
+
+    // Render a single cell, optionally with frame context
+    function renderCell(entry, st, frame, color) {
+        const isEsp = entry.addr === st.esp;
+        const isEbp = entry.addr === st.ebp && st.ebp !== 0;
+        let cls = 'sp-cell';
+        if (isEsp && isEbp) cls += ' is-both';
+        else if (isEsp) cls += ' is-esp';
+        else if (isEbp) cls += ' is-ebp';
+        if (entry.kind) cls += ' is-' + entry.kind;
+        if (entry.highlighted) cls += ' highlighted';
+        if (color) cls += ' sp-cell-color-' + color;
+
+        const pointers = [];
+        if (isEsp) pointers.push('&larr; ESP');
+        if (isEbp) pointers.push('&larr; EBP');
+
+        // Use frame-relative label if this cell has an owning frame with valid EBP
+        let frameLabel;
+        if (frame && frame.ebp !== 0) {
+            frameLabel = computeFrameRelLabel(entry.addr, frame);
+        } else {
+            frameLabel = computeFrameLabel(entry.addr, st);
+        }
+        const meaning = frame && frame.ebp !== 0
+            ? frameLabelMeaningFor(entry.addr, frame)
+            : frameLabelMeaning(entry.addr, st);
+
+        let labelHtml = `<span class="sp-cell-frame">${frameLabel}</span>`;
+        if (meaning) labelHtml += ` <span class="sp-cell-meaning">${meaning}</span>`;
+        else if (entry.label) labelHtml += ` <span class="sp-cell-meaning">${entry.label}</span>`;
+
+        const valDisplay = typeof entry.value === 'string' ? entry.value : (entry.value >>> 0).toString();
+        return `<div class="${cls}">
+            <span class="sp-cell-addr">${fmtAddr(entry.addr)}</span>
+            <span class="sp-cell-value">${valDisplay}</span>
+            <span class="sp-cell-label">${labelHtml}</span>
+            <span class="sp-cell-pointer">${pointers.join(' ')}</span>
+        </div>`;
+    }
+
+    // Per-frame meaning (like frameLabelMeaning but for a specific frame)
+    function frameLabelMeaningFor(addr, frame) {
+        const offset = addr - frame.ebp;
+        if (offset === 0) return 'saved EBP';
+        if (offset === 4) return 'return address';
+        if (offset >= 8) return `arg ${(offset - 8) / 4 + 1}`;
+        if (offset < 0) return `local ${-offset / 4}`;
+        return '';
     }
 
     function log(op, desc) { state.log.push({ op, desc }); }
@@ -1507,9 +1692,18 @@ function initStackPlayground() {
     function doCall(funcName) {
         const retAddr = state.pc + 5;
         state.pc = retAddr + 100;
+        const argBoundary = state.esp; // ESP before pushing retaddr = where args end
         doPush(`retaddr:${retAddr.toString(16)}`, `return to ${funcName} caller`, 'retaddr');
         state.callStack.push(retAddr);
-        log('CALL', `${funcName} — pushed return address`);
+        // Start a new frame (prologue will assign EBP later)
+        state.frames.push({
+            name: funcName,
+            ebp: 0, // set by prologue
+            retAddrAddr: state.esp, // address of the return address we just pushed
+            argBoundary, // addresses >= argBoundary are args
+            callDepth: state.frames.length,
+        });
+        log('CALL', `${funcName} — pushed return address, started frame`);
         return { retAddr, funcName };
     }
 
@@ -1519,6 +1713,8 @@ function initStackPlayground() {
         if (!wasReturn) log('RET', 'WARNING: top of stack is not a return address');
         const popResult = doPop('EIP');
         state.callStack.pop();
+        // Pop the frame
+        if (state.frames.length > 1) state.frames.pop();
         return { wasReturn, popResult };
     }
 
@@ -1526,6 +1722,20 @@ function initStackPlayground() {
         const oldEbp = state.ebp;
         doPush(state.ebp >>> 0, 'saved old EBP', 'savedebp');
         state.ebp = state.esp;
+        // If there's a pending frame (from a CALL), assign its EBP
+        const topFrame = state.frames[state.frames.length - 1];
+        if (topFrame && topFrame.ebp === 0) {
+            topFrame.ebp = state.ebp;
+        } else {
+            // Prologue without a CALL (e.g., user starting fresh) — create a frame
+            state.frames.push({
+                name: 'anon',
+                ebp: state.ebp,
+                retAddrAddr: null,
+                argBoundary: state.esp + 4, // saved EBP + whatever was below
+                callDepth: state.frames.length,
+            });
+        }
         log('PROLOGUE', `push ebp; mov ebp, esp (EBP = ${fmtAddr(state.esp)})`);
         return { oldEbp, newEbp: state.ebp };
     }
@@ -1557,6 +1767,12 @@ function initStackPlayground() {
             state.stack = state.stack.filter(e => e.addr !== state.esp);
             state.esp += 4;
             log('LEAVE', `mov esp, ebp; pop ebp (EBP = ${fmtAddr(state.ebp)})`);
+            // If the top frame is an 'anon' frame (from standalone prologue), pop it now
+            const topFrame = state.frames[state.frames.length - 1];
+            if (topFrame && topFrame.name === 'anon' && state.frames.length > 1) {
+                state.frames.pop();
+            }
+            // Otherwise the frame will be popped by the following RET
             return { oldEbp, newEbp: state.ebp };
         } else {
             log('LEAVE', 'WARNING: expected saved EBP at top');

@@ -499,15 +499,30 @@ class AsmSimulator {
                     const src = operands[0];
                     const bits = this.isReg(src) ? this.regBits(src) : 32;
                     if (bits === 16) {
-                        const result = this.getReg('ax') * this.readOperand(src);
-                        this.setReg('ax', result & 0xFFFF);
-                        this.setReg('dx', (result >> 16) & 0xFFFF);
-                        desc = `DX:AX = ${result} (AX=${result&0xFFFF}, DX=${(result>>16)&0xFFFF})`;
+                        const axBefore = this.getReg('ax');
+                        const dxBefore = this.getReg('dx');
+                        const srcVal = this.readOperand(src);
+                        const result = axBefore * srcVal;
+                        const newAx = result & 0xFFFF;
+                        const newDx = (result >> 16) & 0xFFFF;
+                        this.setReg('ax', newAx);
+                        this.setReg('dx', newDx);
+                        desc = `unsigned multiply: DX:AX = AX * ${src} = ${axBefore} * ${srcVal} = ${result}. ` +
+                               `Low 16 bits → AX = ${newAx}; high 16 bits → DX = ${newDx}` +
+                               (dxBefore !== newDx ? ` (DX was ${dxBefore}, now clobbered)` : '');
                     } else {
-                        const result = this.getReg('eax') * this.readOperand(src);
-                        this.setReg('eax', result & 0xFFFFFFFF);
-                        this.setReg('edx', Math.floor(result / 0x100000000));
-                        desc = `EDX:EAX = ${result}`;
+                        const eaxBefore = this.getReg('eax');
+                        const edxBefore = this.getReg('edx');
+                        const srcVal = this.readOperand(src);
+                        const result = eaxBefore * srcVal;
+                        const newEax = result & 0xFFFFFFFF;
+                        const newEdx = Math.floor(result / 0x100000000);
+                        this.setReg('eax', newEax);
+                        this.setReg('edx', newEdx);
+                        desc = `unsigned multiply: EDX:EAX = EAX * ${src} = ${eaxBefore} * ${srcVal} = ${result}. ` +
+                               `Low 32 bits → EAX = ${newEax}; high 32 bits → EDX = ${newEdx}` +
+                               (newEdx === 0 ? ' (result fit in 32 bits)' : ' (result overflowed 32 bits; EDX holds the upper half)') +
+                               (edxBefore !== newEdx ? `. Note: MUL always overwrites EDX` : '');
                     }
                     break;
                 }
@@ -518,14 +533,16 @@ class AsmSimulator {
                         const b = parseInt(operands[2]);
                         const result = a * b;
                         this.setReg(dest, this.fromSigned(result, bits));
-                        desc = `${dest} = ${a} * ${b} = ${result}`;
+                        desc = `signed multiply (3-operand form): ${dest} = ${operands[1]} * ${operands[2]} = ${a} * ${b} = ${result}. ` +
+                               `Unlike 1-operand MUL/IMUL, this form does NOT touch EDX.`;
                     } else if (operands.length === 2) {
                         const dest = operands[0], bits = this.regBits(dest);
                         const a = this.toSigned(this.getReg(dest), bits);
                         const b = this.toSigned(this.readOperand(operands[1]), bits);
                         const result = a * b;
                         this.setReg(dest, this.fromSigned(result, bits));
-                        desc = `${dest} = ${a} * ${b} = ${result}`;
+                        desc = `signed multiply (2-operand form): ${dest} = ${dest} * ${operands[1]} = ${a} * ${b} = ${result}. ` +
+                               `Does NOT touch EDX.`;
                     } else {
                         const src = operands[0], bits = this.regBits(src);
                         if (bits === 16) {
@@ -533,13 +550,18 @@ class AsmSimulator {
                             const result = a*b;
                             this.setReg('ax', result & 0xFFFF);
                             this.setReg('dx', (result >> 16) & 0xFFFF);
-                            desc = `DX:AX = ${a} * ${b} = ${result}`;
+                            desc = `signed multiply (1-operand form): DX:AX = AX * ${src} = ${a} * ${b} = ${result}. ` +
+                                   `Low 16 bits → AX; high 16 bits → DX (clobbered).`;
                         } else {
                             const a = this.toSigned(this.getReg('eax'),32), b = this.toSigned(this.readOperand(src),32);
                             const result = a*b;
-                            this.setReg('eax', result & 0xFFFFFFFF);
+                            const newEax = result & 0xFFFFFFFF;
+                            const signExt = result < 0 ? '0xFFFFFFFF' : '0';
+                            this.setReg('eax', newEax);
                             this.setReg('edx', result < 0 ? 0xFFFFFFFF : 0);
-                            desc = `EDX:EAX = ${a} * ${b} = ${result}`;
+                            desc = `signed multiply (1-operand form): EDX:EAX = EAX * ${src} = ${a} * ${b} = ${result}. ` +
+                                   `Low 32 bits → EAX; EDX is set to ${signExt} (sign-extension of result). ` +
+                                   `Note: MUL clobbers EDX regardless.`;
                         }
                     }
                     break;
@@ -547,46 +569,67 @@ class AsmSimulator {
                 case 'div': {
                     const src = operands[0], bits = this.isReg(src) ? this.regBits(src) : 32;
                     const divisor = this.readOperand(src);
-                    if (divisor === 0) { desc = 'DIVIDE BY ZERO ERROR'; break; }
+                    if (divisor === 0) { desc = 'DIVIDE BY ZERO EXCEPTION — in a real program, this would crash with a #DE fault.'; break; }
                     if (bits === 16) {
-                        const dividend = (this.getReg('dx') << 16) | this.getReg('ax');
-                        this.setReg('ax', Math.floor(dividend / divisor));
-                        this.setReg('dx', dividend % divisor);
-                        desc = `AX=${Math.floor(dividend/divisor)}, DX(rem)=${dividend%divisor}`;
+                        const dxBefore = this.getReg('dx');
+                        const axBefore = this.getReg('ax');
+                        const dividend = (dxBefore << 16) | axBefore;
+                        const q = Math.floor(dividend / divisor), r = dividend % divisor;
+                        this.setReg('ax', q);
+                        this.setReg('dx', r);
+                        desc = `unsigned divide: DX:AX / ${src} = (DX=${dxBefore}):(AX=${axBefore}) = ${dividend} ÷ ${divisor} = ${q} remainder ${r}. ` +
+                               `Quotient → AX = ${q}; remainder → DX = ${r}. ` +
+                               (dxBefore !== 0 ? 'Note: DX was used as the high half of the dividend.' : 'DX=0 means the dividend was effectively just AX.');
                     } else {
-                        const dividend = this.getReg('edx') * 0x100000000 + this.getReg('eax');
+                        const edxBefore = this.getReg('edx');
+                        const eaxBefore = this.getReg('eax');
+                        const dividend = edxBefore * 0x100000000 + eaxBefore;
                         const q = Math.floor(dividend / divisor), r = dividend % divisor;
                         this.setReg('eax', q); this.setReg('edx', r);
-                        desc = `EAX=${q}, EDX(rem)=${r}`;
+                        desc = `unsigned divide: EDX:EAX / ${src} = (EDX=${edxBefore}):(EAX=${eaxBefore}) treated as a 64-bit value = ${dividend} ÷ ${divisor} = ${q} remainder ${r}. ` +
+                               `Quotient → EAX = ${q}; remainder → EDX = ${r}. ` +
+                               (edxBefore === 0 ? 'Good practice: EDX was zeroed first (usually with xor edx, edx) so the dividend was effectively just EAX.' : 'Note: EDX was the high 32 bits of the dividend — make sure that was intentional, or zero it first with xor edx, edx.');
                     }
                     break;
                 }
                 case 'idiv': {
                     const src = operands[0], bits = this.isReg(src) ? this.regBits(src) : 32;
                     const divisor = this.toSigned(this.readOperand(src), bits);
-                    if (divisor === 0) { desc = 'DIVIDE BY ZERO ERROR'; break; }
+                    if (divisor === 0) { desc = 'DIVIDE BY ZERO EXCEPTION — in a real program, this would crash with a #DE fault.'; break; }
                     let dividend;
+                    const edxBefore = this.getReg('edx');
+                    const eaxBefore = this.getReg('eax');
                     if (bits === 16) {
                         dividend = this.toSigned((this.getReg('dx')<<16)|this.getReg('ax'), 32);
                     } else {
-                        const edx = this.toSigned(this.getReg('edx'),32), eax = this.getReg('eax');
-                        if (edx === 0) dividend = eax;
-                        else if (edx === -1) dividend = this.toSigned(eax, 32);
-                        else dividend = edx >= 0 ? edx * 0x100000000 + eax : -((-edx-1)*0x100000000+(0x100000000-eax));
+                        const edxS = this.toSigned(edxBefore, 32);
+                        if (edxS === 0) dividend = eaxBefore;
+                        else if (edxS === -1) dividend = this.toSigned(eaxBefore, 32);
+                        else dividend = edxS >= 0 ? edxS * 0x100000000 + eaxBefore : -((-edxS-1)*0x100000000+(0x100000000-eaxBefore));
                     }
                     const q = Math.trunc(dividend / divisor), r = dividend - q * divisor;
                     if (bits === 16) {
                         this.setReg('ax', this.fromSigned(q,16)); this.setReg('dx', this.fromSigned(r,16));
+                        desc = `signed divide: DX:AX / ${src} = ${dividend} ÷ ${divisor} = ${q} remainder ${r}. ` +
+                               `Quotient → AX; remainder → DX. Make sure you used CWD before this to sign-extend AX into DX.`;
                     } else {
                         this.setReg('eax', q >>> 0); this.setReg('edx', r >= 0 ? r : (r+0x100000000)>>>0);
+                        const signNote = edxBefore === 0 ? 'EDX was 0 (dividend was positive).' :
+                                         edxBefore === 0xFFFFFFFF ? 'EDX was 0xFFFFFFFF (all 1s = sign-extension of a negative EAX).' :
+                                         'EDX was a non-standard value — make sure CDQ was used first.';
+                        desc = `signed divide: EDX:EAX / ${src} = 64-bit dividend (EDX=${edxBefore} : EAX=${eaxBefore}) = ${dividend} ÷ ${divisor} = ${q} remainder ${r}. ` +
+                               `Quotient → EAX; remainder → EDX. ${signNote} ` +
+                               `IDIV requires CDQ beforehand to properly sign-extend EAX into EDX:EAX.`;
                     }
-                    desc = `quotient=${q}, remainder=${r}`;
                     break;
                 }
                 case 'cdq': {
                     const eax = this.toSigned(this.getReg('eax'), 32);
-                    this.setReg('edx', eax < 0 ? 0xFFFFFFFF : 0);
-                    desc = `EDX = ${eax < 0 ? '0xFFFFFFFF' : '0'} (sign extend EAX)`;
+                    const newEdx = eax < 0 ? 0xFFFFFFFF : 0;
+                    this.setReg('edx', newEdx);
+                    desc = `sign-extend EAX into EDX:EAX. EAX = ${eax} is ${eax < 0 ? 'negative' : 'non-negative'}, ` +
+                           `so EDX is set to ${eax < 0 ? '0xFFFFFFFF (all 1s)' : '0'}. ` +
+                           `Now EDX:EAX forms a valid 64-bit signed version of EAX, ready for IDIV.`;
                     break;
                 }
                 case 'lea': {

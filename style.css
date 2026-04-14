@@ -1202,6 +1202,84 @@ p { margin-bottom: 0.7rem; }
 .sp-scenario-objective.visible { display: block; }
 .sp-scenario-objective strong { color: var(--green); }
 
+/* === Stack Playground: Frame Grouping === */
+.sp-frame-group {
+    border-left: 3px solid var(--border);
+    border-radius: 4px;
+    padding: 0.3rem 0 0.3rem 0.4rem;
+    margin-bottom: 0.3rem;
+    background: rgba(0,0,0,0.12);
+    position: relative;
+    transition: border-color 0.3s;
+}
+.sp-frame-header {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    padding-left: 0.3rem;
+}
+.sp-frame-color-accent { border-left-color: var(--accent); }
+.sp-frame-color-accent .sp-frame-header { color: var(--accent); }
+.sp-frame-color-mauve { border-left-color: var(--mauve); }
+.sp-frame-color-mauve .sp-frame-header { color: var(--mauve); }
+.sp-frame-color-green { border-left-color: var(--green); }
+.sp-frame-color-green .sp-frame-header { color: var(--green); }
+.sp-frame-color-peach { border-left-color: var(--peach); }
+.sp-frame-color-peach .sp-frame-header { color: var(--peach); }
+.sp-frame-color-teal { border-left-color: var(--teal); }
+.sp-frame-color-teal .sp-frame-header { color: var(--teal); }
+.sp-frame-outer { border-left-color: var(--overlay0); opacity: 0.7; }
+
+/* Per-cell frame color accent */
+.sp-cell-color-accent { border-left: 2px solid rgba(137,180,250,0.3); }
+.sp-cell-color-mauve { border-left: 2px solid rgba(203,166,247,0.3); }
+.sp-cell-color-green { border-left: 2px solid rgba(166,227,161,0.3); }
+.sp-cell-color-peach { border-left: 2px solid rgba(250,179,135,0.3); }
+.sp-cell-color-teal { border-left: 2px solid rgba(148,226,213,0.3); }
+
+/* Call stack overview panel */
+.sp-callstack-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+}
+.sp-callstack-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+}
+.sp-callstack-chain {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem;
+}
+.sp-callstack-frame {
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+}
+.sp-callstack-frame.current { font-weight: 700; box-shadow: 0 0 0 1px currentColor; }
+.sp-callstack-frame em { font-size: 0.7rem; opacity: 0.8; font-style: italic; }
+.sp-callstack-color-accent { color: var(--accent); border-color: rgba(137,180,250,0.4); }
+.sp-callstack-color-mauve { color: var(--mauve); border-color: rgba(203,166,247,0.4); }
+.sp-callstack-color-green { color: var(--green); border-color: rgba(166,227,161,0.4); }
+.sp-callstack-color-peach { color: var(--peach); border-color: rgba(250,179,135,0.4); }
+.sp-callstack-color-teal { color: var(--teal); border-color: rgba(148,226,213,0.4); }
+.sp-callstack-color-dim { color: var(--text-dim); }
+.sp-callstack-arrow { color: var(--text-dim); opacity: 0.6; }
+
 /* === Stack Playground GP Registers & Exec === */
 .sp-gp-registers {
     display: grid;
