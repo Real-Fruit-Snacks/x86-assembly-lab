@@ -143,6 +143,9 @@ p { margin-bottom: 0.7rem; }
 .sim-btn:hover { background: var(--border); }
 .sim-btn.primary { background: var(--accent-dim); border-color: var(--accent); }
 .sim-btn.primary:hover { background: var(--accent); color: #000; }
+.sim-btn.danger { background: rgba(243,139,168,0.15); border-color: rgba(243,139,168,0.5); color: #f38ba8; }
+.sim-btn.danger:hover { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; }
+.sim-btn.danger:disabled { background: rgba(243,139,168,0.08); border-color: rgba(243,139,168,0.2); }
 .sim-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* === Feature Grid (Home) === */

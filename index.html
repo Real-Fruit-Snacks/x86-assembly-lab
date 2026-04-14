@@ -151,7 +151,7 @@ Examples:
                         <button id="sandbox-run-btn" class="sim-btn primary">Load &amp; Reset</button>
                         <button id="sandbox-step-btn" class="sim-btn" disabled>Step</button>
                         <button id="sandbox-runall-btn" class="sim-btn" disabled>Run All</button>
-                        <button id="sandbox-reset-btn" class="sim-btn" disabled>Reset</button>
+                        <button id="sandbox-reset-btn" class="sim-btn danger" disabled>Reset</button>
                         <label class="sandbox-bits-label">
                             Register size:
                             <select id="sandbox-bits">
@@ -376,7 +376,7 @@ Examples:
                         </div>
 
                         <div class="sp-action-group">
-                            <button id="sp-reset" class="sim-btn sp-full-btn" style="margin-top:0.3rem">Reset</button>
+                            <button id="sp-reset" class="sim-btn danger sp-full-btn" style="margin-top:0.3rem">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -570,7 +570,7 @@ Examples:
                     <div class="mini-sim-header">
                         <span>Try it: Watch how sub-registers affect EAX</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -807,7 +807,7 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
                     <div class="mini-sim-header">
                         <span>Try it:</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -823,7 +823,7 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
                     <div class="mini-sim-header">
                         <span>Try it:</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -838,7 +838,7 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
                     <div class="mini-sim-header">
                         <span>Try it: Watch NEG flip the sign</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -851,7 +851,7 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
                     <div class="mini-sim-header">
                         <span>Try it:</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -888,7 +888,7 @@ add eax, ecx</pre>
                     <div class="mini-sim-header">
                         <span>Try it (8-bit):</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -918,7 +918,7 @@ add eax, ecx</pre>
                     <div class="mini-sim-header">
                         <span>Try it (8-bit):</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -969,7 +969,7 @@ xor bl, al</pre>
                     <div class="mini-sim-header">
                         <span>Try it: 100 * 5</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -987,7 +987,7 @@ xor bl, al</pre>
                     <div class="mini-sim-header">
                         <span>Try it: 17 / 5 = 3 remainder 2</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -1016,7 +1016,7 @@ xor bl, al</pre>
                     <div class="mini-sim-header">
                         <span>Try it: 7168 / (-65)</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
@@ -1072,7 +1072,7 @@ mul ecx
                     <div class="mini-sim-header">
                         <span>Try it: SHR then SHL</span>
                         <button class="sim-btn mini-step">Step</button>
-                        <button class="sim-btn mini-reset">Reset</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
                     </div>
                     <div class="mini-sim-body"></div>
                 </div>
