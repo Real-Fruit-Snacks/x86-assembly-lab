@@ -24,9 +24,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Mobile sidebar toggle
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('open');
+    // Sidebar toggle (works on desktop and mobile)
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    const contentEl = document.getElementById('content');
+
+    function applyCollapsed(collapsed) {
+        if (collapsed) {
+            sidebar.classList.add('collapsed');
+            document.body.classList.add('sidebar-collapsed');
+            sidebar.style.transform = 'translateX(-100%)';
+            contentEl.style.marginLeft = '0';
+            contentEl.style.maxWidth = '1400px';
+            toggleBtn.style.left = '0.6rem';
+            toggleBtn.innerHTML = '&#9776;';
+            toggleBtn.setAttribute('aria-label', 'Expand sidebar');
+        } else {
+            sidebar.classList.remove('collapsed');
+            document.body.classList.remove('sidebar-collapsed');
+            sidebar.style.transform = '';
+            contentEl.style.marginLeft = '';
+            contentEl.style.maxWidth = '';
+            toggleBtn.style.left = '';
+            toggleBtn.innerHTML = '&laquo;';
+            toggleBtn.setAttribute('aria-label', 'Collapse sidebar');
+        }
+        // Force a reflow to ensure the browser applies the changes
+        void contentEl.offsetHeight;
+    }
+
+    // Restore collapsed state
+    const initiallyCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    applyCollapsed(initiallyCollapsed);
+
+    toggleBtn.addEventListener('click', () => {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            // Mobile: slide-in overlay behavior
+            sidebar.classList.toggle('open');
+        } else {
+            // Desktop: collapse to expand working area
+            const nowCollapsed = !sidebar.classList.contains('collapsed');
+            applyCollapsed(nowCollapsed);
+            localStorage.setItem('sidebarCollapsed', nowCollapsed ? 'true' : 'false');
+        }
     });
 
     // Hash navigation
