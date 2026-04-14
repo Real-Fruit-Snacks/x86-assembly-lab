@@ -16,6 +16,7 @@
             <li><a href="#home" class="nav-link active" data-section="home">Home</a></li>
             <li><a href="#sandbox" class="nav-link" data-section="sandbox">Sandbox Simulator</a></li>
             <li><a href="#quiz" class="nav-link" data-section="quiz">Register Quiz</a></li>
+            <li><a href="#stack-playground" class="nav-link" data-section="stack-playground">Stack Playground</a></li>
             <li class="nav-group-label">Fundamentals</li>
             <li><a href="#learn-registers" class="nav-link" data-section="learn-registers">Register Map</a></li>
             <li><a href="#learn-twos-comp" class="nav-link" data-section="learn-twos-comp">Two's Complement</a></li>
@@ -185,6 +186,98 @@ Examples:
                     </div>
                 </div>
             </div>
+
+            <!-- Always-visible reference panel -->
+            <div class="sandbox-reference">
+                <div class="sref-header">
+                    <h3>Reference: Registers &amp; Flags</h3>
+                    <button class="sref-toggle sim-btn" id="sref-toggle">Collapse</button>
+                </div>
+                <div class="sref-body" id="sref-body">
+                    <div class="sref-grid">
+                        <div class="sref-section">
+                            <h4>General-Purpose Registers (32-bit)</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">EAX</td><td>Accumulator &mdash; return values, implicit target of MUL/DIV</td></tr>
+                                <tr><td class="sref-name">EBX</td><td>Base &mdash; general purpose (callee-saved by convention)</td></tr>
+                                <tr><td class="sref-name">ECX</td><td>Counter &mdash; loop counters, shift counts</td></tr>
+                                <tr><td class="sref-name">EDX</td><td>Data &mdash; high bits of MUL/DIV, second return slot</td></tr>
+                                <tr><td class="sref-name">ESI</td><td>Source Index &mdash; string source pointer</td></tr>
+                                <tr><td class="sref-name">EDI</td><td>Destination Index &mdash; string destination pointer</td></tr>
+                                <tr><td class="sref-name">EBP</td><td>Base Pointer &mdash; current stack frame base</td></tr>
+                                <tr><td class="sref-name">ESP</td><td>Stack Pointer &mdash; top of stack (lowest used address)</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="sref-section">
+                            <h4>Sub-Register Access</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">AL / BL / CL / DL</td><td>Low 8 bits of EAX/EBX/ECX/EDX (bits 0&ndash;7)</td></tr>
+                                <tr><td class="sref-name">AH / BH / CH / DH</td><td>High byte of low 16 bits (bits 8&ndash;15)</td></tr>
+                                <tr><td class="sref-name">AX / BX / CX / DX</td><td>Low 16 bits of EAX/EBX/ECX/EDX</td></tr>
+                                <tr><td class="sref-name">SI / DI / BP / SP</td><td>Low 16 bits of ESI/EDI/EBP/ESP (no 8-bit access)</td></tr>
+                            </table>
+                            <p class="sref-note">Writing to a sub-register only changes those bits of the parent. Writing AL leaves AH and the upper 16 bits of EAX alone.</p>
+                        </div>
+
+                        <div class="sref-section">
+                            <h4>Flags</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">ZF</td><td><strong>Zero Flag</strong> &mdash; set to 1 when the result is exactly 0. Used by JE/JZ and JNE/JNZ.</td></tr>
+                                <tr><td class="sref-name">CF</td><td><strong>Carry Flag</strong> &mdash; set when unsigned arithmetic overflows or borrows. Used by JB, JBE, JA, JAE.</td></tr>
+                                <tr><td class="sref-name">SF</td><td><strong>Sign Flag</strong> &mdash; equals the high bit of the result (1 if negative in two's complement).</td></tr>
+                                <tr><td class="sref-name">OF</td><td><strong>Overflow Flag</strong> &mdash; set when signed arithmetic overflows. Used by JL, JLE, JG, JGE (combined with SF).</td></tr>
+                            </table>
+                            <p class="sref-note">MOV, LEA, PUSH, POP, CALL, RET, XCHG, and CDQ do NOT set flags. ADD, SUB, INC, DEC, AND, OR, XOR, NEG, CMP, TEST, SHL, SHR, SAR, MUL, DIV all do.</p>
+                        </div>
+
+                        <div class="sref-section">
+                            <h4>Reading the Sandbox</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">Purple text</td><td>Register names (EAX, EBX, AL, AH, etc.)</td></tr>
+                                <tr><td class="sref-name">Orange text</td><td>Immediate values and hex/binary literals</td></tr>
+                                <tr><td class="sref-name">Green text</td><td>Instruction mnemonics (MOV, ADD, etc.) and TAKEN branches</td></tr>
+                                <tr><td class="sref-name">Red text</td><td>Errors and NOT TAKEN branches</td></tr>
+                                <tr><td class="sref-name">Blue border</td><td>Currently executing instruction / changed register</td></tr>
+                                <tr><td class="sref-name">DEC/HEX/BIN</td><td>Toggle how register values are displayed</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="sref-section">
+                            <h4>Conditional Jumps After CMP</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">JE / JZ</td><td>Jump if equal (ZF=1)</td></tr>
+                                <tr><td class="sref-name">JNE / JNZ</td><td>Jump if not equal (ZF=0)</td></tr>
+                                <tr><td class="sref-name">JB / JNAE</td><td>Jump if below, <em>unsigned</em> (CF=1)</td></tr>
+                                <tr><td class="sref-name">JBE / JNA</td><td>Jump if below or equal, <em>unsigned</em> (CF=1 or ZF=1)</td></tr>
+                                <tr><td class="sref-name">JA / JNBE</td><td>Jump if above, <em>unsigned</em> (CF=0 and ZF=0)</td></tr>
+                                <tr><td class="sref-name">JAE / JNB</td><td>Jump if above or equal, <em>unsigned</em> (CF=0)</td></tr>
+                                <tr><td class="sref-name">JL / JNGE</td><td>Jump if less, <em>signed</em> (SF&ne;OF)</td></tr>
+                                <tr><td class="sref-name">JLE / JNG</td><td>Jump if less or equal, <em>signed</em></td></tr>
+                                <tr><td class="sref-name">JG / JNLE</td><td>Jump if greater, <em>signed</em> (ZF=0 and SF=OF)</td></tr>
+                                <tr><td class="sref-name">JGE / JNL</td><td>Jump if greater or equal, <em>signed</em> (SF=OF)</td></tr>
+                            </table>
+                            <p class="sref-note">Memory aid: <strong>A</strong>bove/<strong>B</strong>elow = unsigned. <strong>G</strong>reater/<strong>L</strong>ess = signed.</p>
+                        </div>
+
+                        <div class="sref-section">
+                            <h4>Accepted Input Formats</h4>
+                            <table class="sref-table">
+                                <tr><td class="sref-name">42, -5</td><td>Decimal (signed)</td></tr>
+                                <tr><td class="sref-name">0xFF, -0xFF</td><td>Hex with 0x prefix</td></tr>
+                                <tr><td class="sref-name">0FFh, 0Ch</td><td>IDA-style hex with h suffix</td></tr>
+                                <tr><td class="sref-name">0b11001100</td><td>Binary with 0b prefix</td></tr>
+                                <tr><td class="sref-name">11001100b</td><td>Binary with b suffix (NASM)</td></tr>
+                                <tr><td class="sref-name">'A', '0'</td><td>Character literal (ASCII value)</td></tr>
+                                <tr><td class="sref-name">[ebp-4]</td><td>Memory at address EBP-4</td></tr>
+                                <tr><td class="sref-name">[ebp+var_4]</td><td>IDA var_N syntax (becomes [ebp-4])</td></tr>
+                                <tr><td class="sref-name">[ebp+arg_0]</td><td>IDA arg_N syntax (becomes [ebp+8])</td></tr>
+                                <tr><td class="sref-name">dword ptr [...]</td><td>Force 4-byte size on memory operand</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Register Quiz -->
@@ -211,6 +304,110 @@ Examples:
 
             <div id="quiz-area" class="quiz-area">
                 <div class="quiz-placeholder">Click <strong>New Question</strong> to start. Read the assembly, figure out what each register will be, and type your answers.</div>
+            </div>
+        </section>
+
+        <!-- Stack Playground -->
+        <section id="stack-playground" class="section">
+            <h1>Stack Playground</h1>
+            <p>Visualize how the stack works. Click buttons to push, pop, call, and return. Watch ESP and EBP move in real time.</p>
+
+            <div class="sp-layout">
+                <div class="sp-controls-col">
+                    <div class="sp-scenarios">
+                        <label>Scenario:</label>
+                        <select id="sp-scenario">
+                            <option value="empty">Empty stack (start fresh)</option>
+                            <option value="push-pop">Simple PUSH/POP</option>
+                            <option value="function-call">Function call setup</option>
+                            <option value="nested-call">Nested function calls</option>
+                            <option value="local-vars">Function with local variables</option>
+                            <option value="args-call">Call with 3 arguments</option>
+                        </select>
+                        <button id="sp-load" class="sim-btn">Load</button>
+                    </div>
+
+                    <div class="sp-action-panel">
+                        <h4>Actions</h4>
+                        <div class="sp-action-group">
+                            <p class="sp-group-label">Stack operations</p>
+                            <div class="sp-action-row">
+                                <input type="text" id="sp-push-val" placeholder="Value" value="42">
+                                <button class="sim-btn sp-btn" data-action="push">PUSH</button>
+                            </div>
+                            <div class="sp-action-row">
+                                <select id="sp-pop-reg">
+                                    <option value="eax">EAX</option>
+                                    <option value="ebx">EBX</option>
+                                    <option value="ecx">ECX</option>
+                                    <option value="edx">EDX</option>
+                                    <option value="ebp">EBP</option>
+                                </select>
+                                <button class="sim-btn sp-btn" data-action="pop">POP</button>
+                            </div>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <p class="sp-group-label">Function calls</p>
+                            <div class="sp-action-row">
+                                <input type="text" id="sp-call-name" placeholder="func_name" value="myfunc">
+                                <button class="sim-btn sp-btn" data-action="call">CALL</button>
+                            </div>
+                            <div class="sp-action-row">
+                                <button class="sim-btn sp-btn sp-full-btn" data-action="ret">RET</button>
+                            </div>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <p class="sp-group-label">Stack frame</p>
+                            <div class="sp-action-row">
+                                <button class="sim-btn sp-btn" data-action="prologue">PROLOGUE</button>
+                                <span class="sp-hint">push ebp; mov ebp, esp</span>
+                            </div>
+                            <div class="sp-action-row">
+                                <input type="text" id="sp-local-bytes" placeholder="Bytes" value="8" style="width:60px">
+                                <button class="sim-btn sp-btn" data-action="alloc">ALLOC</button>
+                                <span class="sp-hint">sub esp, N</span>
+                            </div>
+                            <div class="sp-action-row">
+                                <button class="sim-btn sp-btn sp-full-btn" data-action="leave">LEAVE</button>
+                                <span class="sp-hint">mov esp, ebp; pop ebp</span>
+                            </div>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <button id="sp-reset" class="sim-btn sp-full-btn" style="margin-top:0.3rem">Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sp-visual-col">
+                    <div class="sp-registers">
+                        <div class="sp-reg"><span class="sp-reg-name">ESP</span><span class="sp-reg-val" id="sp-esp">0x00200000</span></div>
+                        <div class="sp-reg"><span class="sp-reg-name">EBP</span><span class="sp-reg-val" id="sp-ebp">0x00000000</span></div>
+                    </div>
+                    <div class="sp-stack-wrapper">
+                        <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
+                        <div id="sp-stack" class="sp-stack"></div>
+                        <div class="sp-stack-label sp-low">Lower addresses &darr; (stack grows this way)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sp-log-box">
+                <h4>Action Log</h4>
+                <div id="sp-log" class="sp-log"></div>
+            </div>
+
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>Try These Experiments</h3>
+                <ul>
+                    <li><strong>PUSH 3 values, then POP them</strong> &mdash; notice they come out in reverse order (LIFO: Last In, First Out)</li>
+                    <li><strong>Load "Function call setup"</strong> and step through one action at a time to see how a call frame is built</li>
+                    <li><strong>Compare ALLOC to PUSH</strong> &mdash; ALLOC reserves space without writing values, PUSH stores a value</li>
+                    <li><strong>Use LEAVE after a prologue</strong> &mdash; see how it restores both ESP and EBP in one step</li>
+                    <li><strong>Load "Nested calls"</strong> to see multiple return addresses stacked</li>
+                </ul>
             </div>
         </section>
 

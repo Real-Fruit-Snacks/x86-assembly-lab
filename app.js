@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initReference();
     initEndianness();
     initQuiz();
+    initStackPlayground();
 });
 
 // ============================================================
@@ -75,6 +76,16 @@ function initSandbox() {
         document.getElementById('sandbox-code').value = SANDBOX_EXAMPLES[ex] || '';
         document.getElementById('sandbox-examples').value = '';
     });
+
+    // Reference panel collapse/expand
+    const srefToggle = document.getElementById('sref-toggle');
+    const srefBody = document.getElementById('sref-body');
+    if (srefToggle && srefBody) {
+        srefToggle.addEventListener('click', () => {
+            const collapsed = srefBody.classList.toggle('collapsed');
+            srefToggle.textContent = collapsed ? 'Expand' : 'Collapse';
+        });
+    }
 }
 
 const SANDBOX_EXAMPLES = {
@@ -1187,4 +1198,231 @@ function initQuiz() {
         ];
         return pick(templates)();
     }
+}
+
+// ============================================================
+// STACK PLAYGROUND
+// ============================================================
+
+function initStackPlayground() {
+    const ESP_INIT = 0x00200000;
+
+    let state = null;
+
+    function reset() {
+        state = {
+            esp: ESP_INIT,
+            ebp: 0,
+            stack: [],         // array of { addr, value, label, kind }
+            pc: 1000,          // fake PC, incremented on each operation
+            callStack: [],     // for CALL tracking
+            log: [],
+        };
+        render();
+    }
+
+    function render() {
+        // Registers
+        document.getElementById('sp-esp').textContent = '0x' + state.esp.toString(16).toUpperCase().padStart(8, '0');
+        document.getElementById('sp-ebp').textContent = '0x' + state.ebp.toString(16).toUpperCase().padStart(8, '0');
+
+        // Stack
+        const stackEl = document.getElementById('sp-stack');
+        if (state.stack.length === 0) {
+            stackEl.innerHTML = '<div class="sp-empty-stack">Stack is empty. Click PUSH, PROLOGUE, or load a scenario to begin.</div>';
+        } else {
+            // Sort so highest address appears at the top
+            const sorted = [...state.stack].sort((a, b) => b.addr - a.addr);
+            stackEl.innerHTML = sorted.map(entry => {
+                const isEsp = entry.addr === state.esp;
+                const isEbp = entry.addr === state.ebp && state.ebp !== 0;
+                let cls = 'sp-cell';
+                if (isEsp && isEbp) cls += ' is-both';
+                else if (isEsp) cls += ' is-esp';
+                else if (isEbp) cls += ' is-ebp';
+                if (entry.kind) cls += ' is-' + entry.kind;
+
+                const pointers = [];
+                if (isEsp) pointers.push('&larr; ESP');
+                if (isEbp) pointers.push('&larr; EBP');
+
+                const valDisplay = typeof entry.value === 'string' ? entry.value : (entry.value >>> 0).toString();
+                return `<div class="${cls}">
+                    <span class="sp-cell-addr">0x${entry.addr.toString(16).toUpperCase().padStart(8, '0')}</span>
+                    <span class="sp-cell-value">${valDisplay}</span>
+                    <span class="sp-cell-label">${entry.label || ''}</span>
+                    <span class="sp-cell-pointer">${pointers.join(' ')}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // Log
+        const logEl = document.getElementById('sp-log');
+        if (state.log.length === 0) {
+            logEl.innerHTML = '<div style="color:var(--text-dim);font-style:italic;font-size:0.78rem">No actions yet.</div>';
+        } else {
+            logEl.innerHTML = state.log.slice(-20).reverse().map(entry =>
+                `<div class="sp-log-entry"><span class="sp-log-op">${entry.op}</span><span class="sp-log-desc">${entry.desc}</span></div>`
+            ).join('');
+        }
+    }
+
+    function log(op, desc) { state.log.push({ op, desc }); }
+
+    function doPush(value, label, kind) {
+        state.esp -= 4;
+        state.stack.push({ addr: state.esp, value, label: label || '', kind: kind || '' });
+        log('PUSH', `${value} at [0x${state.esp.toString(16).toUpperCase()}]${label ? ' — ' + label : ''}`);
+    }
+
+    function doPop(regName) {
+        const top = state.stack.find(e => e.addr === state.esp);
+        if (!top) { log('POP', 'ERROR: stack is empty'); return null; }
+        state.stack = state.stack.filter(e => e.addr !== state.esp);
+        state.esp += 4;
+        log('POP', `${regName.toUpperCase()} = ${top.value} from [0x${(state.esp - 4).toString(16).toUpperCase()}]`);
+        return top.value;
+    }
+
+    function doCall(funcName) {
+        const retAddr = state.pc + 5;
+        state.pc = retAddr + 100; // jump somewhere else
+        doPush(`retaddr:${retAddr.toString(16)}`, `return to ${funcName} caller`, 'retaddr');
+        state.callStack.push(retAddr);
+        log('CALL', `${funcName} — pushed return address`);
+    }
+
+    function doRet() {
+        const top = state.stack.find(e => e.addr === state.esp);
+        if (!top || top.kind !== 'retaddr') {
+            log('RET', 'WARNING: top of stack is not a return address');
+        }
+        doPop('EIP');
+        state.callStack.pop();
+        log('RET', 'popped return address');
+    }
+
+    function doPrologue() {
+        doPush(state.ebp >>> 0, 'saved old EBP', 'savedebp');
+        state.ebp = state.esp;
+        log('PROLOGUE', `push ebp; mov ebp, esp (EBP = 0x${state.esp.toString(16).toUpperCase()})`);
+    }
+
+    function doAlloc(bytes) {
+        if (bytes % 4 !== 0) bytes = Math.ceil(bytes / 4) * 4;
+        const numSlots = bytes / 4;
+        for (let i = 0; i < numSlots; i++) {
+            state.esp -= 4;
+            state.stack.push({
+                addr: state.esp,
+                value: '?',
+                label: `local var [ebp-${(i + 1) * 4}]`,
+                kind: 'local'
+            });
+        }
+        log('ALLOC', `sub esp, ${bytes} — reserved ${numSlots} local variable${numSlots !== 1 ? 's' : ''}`);
+    }
+
+    function doLeave() {
+        // mov esp, ebp
+        if (state.ebp === 0) { log('LEAVE', 'ERROR: no stack frame to leave'); return; }
+        // Remove all entries between current esp and ebp
+        state.stack = state.stack.filter(e => e.addr >= state.ebp);
+        state.esp = state.ebp;
+        // pop ebp
+        const saved = state.stack.find(e => e.addr === state.esp);
+        if (saved && saved.kind === 'savedebp') {
+            state.ebp = typeof saved.value === 'number' ? saved.value : 0;
+            state.stack = state.stack.filter(e => e.addr !== state.esp);
+            state.esp += 4;
+            log('LEAVE', `mov esp, ebp; pop ebp (EBP = 0x${state.ebp.toString(16).toUpperCase()})`);
+        } else {
+            log('LEAVE', 'WARNING: expected saved EBP at top');
+        }
+    }
+
+    // Wire buttons
+    document.querySelectorAll('.sp-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            switch (action) {
+                case 'push': {
+                    const v = document.getElementById('sp-push-val').value.trim();
+                    let val = parseInt(v);
+                    if (v.startsWith('0x')) val = parseInt(v, 16);
+                    if (isNaN(val)) { log('PUSH', 'Invalid value'); render(); return; }
+                    doPush(val);
+                    break;
+                }
+                case 'pop': {
+                    const reg = document.getElementById('sp-pop-reg').value;
+                    doPop(reg);
+                    break;
+                }
+                case 'call': {
+                    const name = document.getElementById('sp-call-name').value.trim() || 'func';
+                    doCall(name);
+                    break;
+                }
+                case 'ret': doRet(); break;
+                case 'prologue': doPrologue(); break;
+                case 'alloc': {
+                    const bytes = parseInt(document.getElementById('sp-local-bytes').value) || 0;
+                    if (bytes > 0) doAlloc(bytes);
+                    break;
+                }
+                case 'leave': doLeave(); break;
+            }
+            render();
+        });
+    });
+
+    // Reset
+    document.getElementById('sp-reset').addEventListener('click', () => reset());
+
+    // Scenarios
+    const scenarios = {
+        empty: () => { reset(); },
+        'push-pop': () => {
+            reset();
+            doPush(10);
+            doPush(20);
+            doPush(30);
+        },
+        'function-call': () => {
+            reset();
+            doCall('myfunc');
+            doPrologue();
+        },
+        'nested-call': () => {
+            reset();
+            doCall('outer');
+            doPrologue();
+            doCall('inner');
+            doPrologue();
+        },
+        'local-vars': () => {
+            reset();
+            doCall('func');
+            doPrologue();
+            doAlloc(12);
+        },
+        'args-call': () => {
+            reset();
+            doPush(300, 'arg 3 (c)', 'arg');
+            doPush(200, 'arg 2 (b)', 'arg');
+            doPush(100, 'arg 1 (a)', 'arg');
+            doCall('func');
+            doPrologue();
+        },
+    };
+
+    document.getElementById('sp-load').addEventListener('click', () => {
+        const scenario = document.getElementById('sp-scenario').value;
+        if (scenarios[scenario]) scenarios[scenario]();
+        render();
+    });
+
+    // Init
+    reset();
 }

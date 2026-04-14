@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local dev
+.claude/
+
+# Node (if using local server)
+node_modules/
+package-lock.json
+
+# Misc
+*.log
+*.tmp
