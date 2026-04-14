@@ -2140,7 +2140,7 @@ function initStepThrough() {
         if (stepState.stack.length === 0) {
             stackEl.innerHTML = '<div class="sp-empty-stack">Stack is empty.</div>';
         } else {
-            const sorted = [...stepState.stack].sort((a, b) => b.addr - a.addr);
+            const sorted = [...stepState.stack].sort((a, b) => a.addr - b.addr);
             stackEl.innerHTML = sorted.map(entry => {
                 const isEsp = entry.addr === stepState.esp;
                 const isEbp = entry.addr === stepState.ebp && stepState.ebp !== 0;

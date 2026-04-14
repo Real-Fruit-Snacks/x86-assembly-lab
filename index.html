@@ -370,8 +370,8 @@ Examples:
                         <button class="sref-toggle sim-btn" id="sp-facts-toggle">Hide</button>
                     </div>
                     <div class="sp-facts-body" id="sp-facts-body">
-                        <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>The stack grows DOWNWARD in memory.</strong> PUSH decreases ESP by 4. POP increases it by 4. Higher addresses are "older" data.</div></div>
-                        <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>ESP always points to the top of the stack</strong> — the lowest-address used slot. Reading from [ESP] gives you the most recently pushed value.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>The stack grows DOWNWARD in memory</strong> (PUSH decreases ESP by 4, POP increases it by 4). <em>In this view</em>, we show the top of stack at the visual top &mdash; addresses get higher as you go down.</div></div>
+                        <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>ESP always points to the top of the stack</strong> &mdash; the lowest-address used slot, shown at the visual top. Reading from [ESP] gives you the most recently pushed value.</div></div>
                         <div class="sp-fact"><span class="sp-fact-num">3</span><div><strong>EBP is your frame anchor.</strong> After the prologue, <code>[ebp-4]</code> is your first local variable and <code>[ebp+8]</code> is your first function argument.</div></div>
                         <div class="sp-fact"><span class="sp-fact-num">4</span><div><strong>CALL pushes the return address</strong> automatically. RET pops it back. This is how functions return to where they were called from.</div></div>
                         <div class="sp-fact"><span class="sp-fact-num">5</span><div><strong>LIFO (Last In, First Out):</strong> if you push 10, 20, 30 and pop three times, you get 30, 20, 10 in that order.</div></div>
@@ -486,9 +486,9 @@ Examples:
                         </div>
                         <div class="sp-gp-registers" id="sp-gp-regs"></div>
                         <div class="sp-stack-wrapper">
-                            <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
+                            <div class="sp-stack-label sp-high">&uarr; Top of stack (lowest address, where ESP points &mdash; PUSH adds here)</div>
                             <div id="sp-stack" class="sp-stack"></div>
-                            <div class="sp-stack-label sp-low">Lower addresses &darr; (stack grows this way)</div>
+                            <div class="sp-stack-label sp-low">&darr; Bottom (highest addresses &mdash; older data)</div>
                         </div>
                     </div>
                 </div>
@@ -544,9 +544,9 @@ Examples:
                             <div class="sp-reg"><span class="sp-reg-name">EBP</span><span class="sp-reg-val" id="sp-step-ebp">0x00000000</span></div>
                         </div>
                         <div class="sp-stack-wrapper">
-                            <div class="sp-stack-label sp-high">Higher addresses &uarr;</div>
+                            <div class="sp-stack-label sp-high">&uarr; Top of stack (where ESP points)</div>
                             <div id="sp-step-stack" class="sp-stack"></div>
-                            <div class="sp-stack-label sp-low">Lower addresses &darr;</div>
+                            <div class="sp-stack-label sp-low">&darr; Bottom (older data, higher addresses)</div>
                         </div>
                     </div>
                 </div>
