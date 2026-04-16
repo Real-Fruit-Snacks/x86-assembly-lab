@@ -273,13 +273,13 @@ p { margin-bottom: 0.7rem; }
 }
 
 /* === MUL/DIV Cheat Sheet Table === */
-.muldiv-cheat {
+.muldiv-cheat, .cheat-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.82rem;
     margin: 0.8rem 0;
 }
-.muldiv-cheat th {
+.muldiv-cheat th, .cheat-table th {
     background: var(--surface0);
     color: var(--accent);
     text-align: left;
@@ -288,14 +288,14 @@ p { margin-bottom: 0.7rem; }
     font-weight: 600;
     white-space: nowrap;
 }
-.muldiv-cheat td {
+.muldiv-cheat td, .cheat-table td {
     padding: 0.45rem 0.6rem;
     border-bottom: 1px solid var(--border);
     vertical-align: top;
 }
-.muldiv-cheat tr:last-child td { border-bottom: none; }
-.muldiv-cheat code { font-size: 0.8rem; }
-.muldiv-cheat .warn-cell { color: var(--red); font-size: 0.78rem; }
+.muldiv-cheat tr:last-child td, .cheat-table tr:last-child td { border-bottom: none; }
+.muldiv-cheat code, .cheat-table code { font-size: 0.8rem; }
+.muldiv-cheat .warn-cell, .cheat-table .warn-cell { color: var(--red); font-size: 0.78rem; }
 
 /* Register state snapshot boxes */
 .reg-snapshot {

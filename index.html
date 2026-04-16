@@ -886,7 +886,7 @@ Examples:
                         <ul>
                             <li><code>ADD, SUB, INC, DEC</code></li>
                             <li><code>AND, OR, XOR</code></li>
-                            <li><code>NEG, NOT</code></li>
+                            <li><code>NEG</code></li>
                             <li><code>CMP</code> (= SUB that discards result)</li>
                             <li><code>TEST</code> (= AND that discards result)</li>
                             <li><code>SHL, SHR, SAR</code></li>
@@ -900,6 +900,7 @@ Examples:
                             <li><code>LEA</code></li>
                             <li><code>PUSH, POP</code></li>
                             <li><code>CALL, RET</code></li>
+                            <li><code>NOT</code></li>
                             <li><code>XCHG</code></li>
                             <li><code>CDQ</code></li>
                             <li><code>NOP</code></li>
@@ -934,6 +935,79 @@ Examples:
                     <tr><td>A &gt; B (unsigned)</td><td>0</td><td>0</td><td><code>JA</code> (CF=0 and ZF=0)</td></tr>
                 </table>
             </div>
+
+            <div class="concept-box">
+                <h3>Worked Example: Tracing CMP Flags</h3>
+                <p>Let's trace <code>cmp eax, ecx</code> when EAX=7 and ECX=10.</p>
+                <p>The CPU internally computes <strong>7 - 10 = -3</strong> (which is 0xFFFFFFFD in 32-bit). It does not store this result anywhere &mdash; it only sets the flags:</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Registers:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">7</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">10</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>Flags after <code>cmp eax, ecx</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">ZF =</span> <span class="snap-changed">0 (result -3 is not zero)</span></div>
+                        <div class="snap-row"><span class="snap-label">SF =</span> <span class="snap-changed">1 (result -3 is negative)</span></div>
+                        <div class="snap-row"><span class="snap-label">CF =</span> <span class="snap-changed">1 (unsigned: 7 &lt; 10, borrow occurred)</span></div>
+                        <div class="snap-row"><span class="snap-label">OF =</span> <span class="snap-val">0 (no signed overflow)</span></div>
+                    </div>
+                </div>
+                <p>Now any conditional jump reads these flags:</p>
+                <ul>
+                    <li><code>JL</code> (signed less): checks SF!=OF &rarr; 1!=0 &rarr; <strong>TAKEN</strong></li>
+                    <li><code>JB</code> (unsigned below): checks CF=1 &rarr; <strong>TAKEN</strong></li>
+                    <li><code>JE</code> (equal): checks ZF=1 &rarr; NOT taken (they're not equal)</li>
+                    <li><code>JG</code> (signed greater): checks ZF=0 AND SF==OF &rarr; 1==0 is false &rarr; NOT taken</li>
+                </ul>
+            </div>
+
+            <div class="concept-box">
+                <h3>Understanding OF: When Signed Math Goes Wrong</h3>
+                <p>OF (Overflow Flag) is set when the <strong>signed</strong> result wraps around. This is easier to see with 8-bit values:</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">AL =</span> <span class="snap-val">127 (0x7F, max positive 8-bit signed)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>add al, 1</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">AL =</span> <span class="snap-destroyed">128 (0x80) = -128 signed!</span></div>
+                        <div class="snap-row"><span class="snap-label">OF =</span> <span class="snap-destroyed">1 (sign flipped: positive &rarr; negative)</span></div>
+                        <div class="snap-row"><span class="snap-label">CF =</span> <span class="snap-val">0 (unsigned 127+1=128 fits fine)</span></div>
+                    </div>
+                </div>
+                <p>127 + 1 = 128 as unsigned &mdash; that's fine (CF=0). But as signed 8-bit, 127 + 1 wraps to -128 &mdash; the sign flipped unexpectedly, so OF=1.</p>
+                <p>Key insight: <strong>CF cares about unsigned range</strong> (did we carry past the max?). <strong>OF cares about signed range</strong> (did the sign bit flip?). The CPU computes both simultaneously. Your choice of jump instruction picks which one to check.</p>
+            </div>
+
+            <div class="mini-sim" data-code="mov eax, 7&#10;mov ecx, 10&#10;cmp eax, ecx">
+                <div class="mini-sim-header">
+                    <span>Try it: CMP 7 vs 10 (unequal)</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="mini-sim" data-code="mov eax, 10&#10;mov ecx, 10&#10;cmp eax, ecx">
+                <div class="mini-sim-header">
+                    <span>Try it: CMP when equal (watch ZF)</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: What Are the Flags?</h3>
+                <pre class="code-block">mov eax, 3
+mov ecx, 3
+cmp eax, ecx</pre>
+                <p>After the CMP, what are ZF, CF, SF, and OF? Would <code>JE</code> fire? Would <code>JA</code> fire?</p>
+                <p>Hint: 3 - 3 = 0. A zero result sets ZF=1. For JE, check ZF=1 (yes). For JA (unsigned above), check CF=0 AND ZF=0 &mdash; but ZF=1, so JA does NOT fire.</p>
+            </div>
         </section>
 
         <!-- Learn: Memory Addressing & Data Sizes -->
@@ -962,6 +1036,22 @@ Examples:
                     <li><code>mov [ebx], eax</code> &mdash; write EAX's value to the memory address in EBX</li>
                 </ul>
                 <div class="important-note">No brackets = register value. Brackets = memory at that address. This is the most fundamental distinction in assembly operands.</div>
+
+                <p><strong>Walkthrough:</strong> Suppose EBX = 0x1000 and memory at address 0x1000 contains the value 42.</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4><code>mov eax, [ebx]</code> (with brackets):</h4>
+                        <div class="snap-row"><span class="snap-label">EBX =</span> <span class="snap-val">0x1000 (the address)</span></div>
+                        <div class="snap-row"><span class="snap-label">[0x1000] =</span> <span class="snap-val">42 (value in memory)</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX &larr;</span> <span class="snap-changed">42 (reads the VALUE at the address)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4><code>mov eax, ebx</code> (no brackets):</h4>
+                        <div class="snap-row"><span class="snap-label">EBX =</span> <span class="snap-val">0x1000</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX &larr;</span> <span class="snap-changed">0x1000 (copies the ADDRESS itself)</span></div>
+                    </div>
+                </div>
+                <p>With brackets: EAX gets 42 (the data at memory address 0x1000). Without brackets: EAX gets 0x1000 (just copies the number in EBX). Completely different results.</p>
             </div>
 
             <div class="concept-box">
@@ -975,6 +1065,12 @@ Examples:
                     <tr><td><code>[eax+ecx*4]</code></td><td>Base + index * scale</td><td>Array of DWORDs</td></tr>
                     <tr><td><code>[eax+ecx*4+8]</code></td><td>Base + index * scale + offset</td><td>Struct array member</td></tr>
                 </table>
+
+                <p><strong>Worked Example: Array Access</strong></p>
+                <p>An array of DWORDs (4 bytes each) starts at address 0x2000. We want element at index 3:</p>
+                <pre class="code-block">; EAX = base address (0x2000), ECX = index (3)
+mov edx, [eax + ecx*4]   ; address = 0x2000 + 3*4 = 0x200C</pre>
+                <p>The scaling factor matches the element size: *1 for BYTE arrays, *2 for WORD, *4 for DWORD, *8 for QWORD. So <code>[eax+ecx*4]</code> is how the CPU accesses <code>array[index]</code> when each element is 4 bytes.</p>
             </div>
 
             <div class="concept-box">
@@ -994,6 +1090,15 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
 [ebp+arg_0]   = [ebp+8]    ; first function argument
 [ebp+arg_4]   = [ebp+12]   ; second function argument</pre>
                 <p>The "var_" prefix means local variable (negative offset). The "arg_" prefix means function argument (positive offset past saved EBP and return address).</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Memory Addressing</h3>
+                <p>If EBP = 0x0028FF74, what memory address does each of these access?</p>
+                <pre class="code-block">[ebp - 8]
+[ebp + 8]
+[ebp + 12]</pre>
+                <p>Hint: 0x0028FF74 - 8 = 0x0028FF6C (a local variable). 0x0028FF74 + 8 = 0x0028FF7C (first function argument). 0x0028FF74 + 12 = 0x0028FF80 (second argument).</p>
             </div>
         </section>
 
@@ -1523,8 +1628,52 @@ idiv ecx</pre>
             <div class="concept-box">
                 <h3>SAR &mdash; Shift Right (Arithmetic)</h3>
                 <p><code>SAR dest, count</code>: Like SHR but preserves the <strong>sign bit</strong>.</p>
-                <p>If the number is negative, ones fill from the left (keeps it negative). This is signed division by 2^count.</p>
-                <div class="important-note">SHR vs SAR matters for negative numbers! SHR treats everything as unsigned. SAR preserves the sign.</div>
+                <p>If the number is negative, <strong>ones</strong> fill from the left (keeping it negative). This is signed division by 2^count.</p>
+
+                <p><strong>Walkthrough:</strong> SAR of -16 by 2 (signed divide by 4)</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">Before:</span><span class="bits">1 1 1 1 0 0 0 0</span><span class="bit-val">= -16 (signed 8-bit)</span></div>
+                    <div class="bit-row result"><span class="bit-label">SAR 2:</span><span class="bits">1 1 1 1 1 1 0 0</span><span class="bit-val">= -4 (signed 8-bit)</span></div>
+                </div>
+                <p>Notice the 1s filling in from the left &mdash; that's the sign bit being preserved. -16 / 4 = -4, which is correct.</p>
+
+                <p>Now compare with SHR on the same value:</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">Before:</span><span class="bits">1 1 1 1 0 0 0 0</span><span class="bit-val">= -16 (signed) = 240 (unsigned)</span></div>
+                    <div class="bit-row result"><span class="bit-label">SHR 2:</span><span class="bits">0 0 1 1 1 1 0 0</span><span class="bit-val">= 60 (unsigned: 240/4=60)</span></div>
+                </div>
+                <p>SHR fills with zeros, giving 60 (the unsigned answer). SAR fills with the sign bit, giving -4 (the signed answer). <strong>Same bits, completely different results.</strong></p>
+
+                <div class="important-note">SHR vs SAR only matters for negative numbers! For positive numbers, the sign bit is 0, so both fill with zeros and give the same result.</div>
+
+                <div class="mini-sim" data-code="mov eax, -16&#10;sar eax, 2">
+                    <div class="mini-sim-header">
+                        <span>Try it: SAR of -16 (signed /4)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+
+                <div class="mini-sim" data-code="mov eax, -16&#10;mov ecx, -16&#10;sar eax, 2&#10;shr ecx, 2">
+                    <div class="mini-sim-header">
+                        <span>Compare: SAR vs SHR on the same negative number</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="important-note">When you shift, the last bit shifted out goes into <strong>CF (Carry Flag)</strong>. For <code>shr eax, 1</code> on an odd number, CF=1 because the lowest bit was 1. This can be used to test if a number was odd before the shift.</div>
+
+            <div class="practice-box">
+                <h3>Practice: Shifts</h3>
+                <p>What is EAX after these instructions?</p>
+                <pre class="code-block">mov eax, 80
+shr eax, 3
+shl eax, 1</pre>
+                <p>Hint: SHR by 3 divides by 2^3 = 8. SHL by 1 multiplies by 2. So: 80 / 8 = ?, then ? * 2 = ?</p>
             </div>
         </section>
 
@@ -1570,16 +1719,85 @@ idiv ecx</pre>
                 <p>This is because <code>reg AND reg = reg</code>, and ZF is set if the result is 0.</p>
             </div>
 
+            <div class="concept-box">
+                <h3>Worked Example: Tracing a Branch</h3>
+                <p>Let's trace this code step by step:</p>
+                <pre class="code-block">mov eax, 15
+mov ecx, 20
+cmp eax, ecx      ; 15 - 20 = -5
+jb below_label     ; jump if below (unsigned)
+mov edx, 1         ; skipped!
+jmp done
+below_label:
+mov edx, 2         ; THIS runs
+done:</pre>
+                <p><strong>Step 1:</strong> EAX=15, ECX=20. <code>CMP</code> computes 15 - 20 = -5. Flags: ZF=0, CF=1 (15 &lt; 20 unsigned, borrow), SF=1, OF=0.</p>
+                <p><strong>Step 2:</strong> <code>JB</code> checks CF=1. It's 1 &rarr; <strong>TAKEN</strong>. Execution jumps to <code>below_label</code>, skipping <code>mov edx, 1</code>.</p>
+                <p><strong>Step 3:</strong> <code>mov edx, 2</code> executes. EDX = 2.</p>
+
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before the branch:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">15</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">20</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">??? (unknown)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After (branch was TAKEN):</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">15 (unchanged)</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">20 (unchanged)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-changed">2 (branch path executed)</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Same Bits, Different Decisions: JA vs JG</h3>
+                <p>The value 0xFFFFFFFF is <strong>4,294,967,295</strong> as unsigned, but <strong>-1</strong> as signed. Watch what happens when we compare it to 1:</p>
+                <pre class="code-block">mov eax, 0xFFFFFFFF   ; 4294967295 unsigned, or -1 signed
+mov ecx, 1
+cmp eax, ecx
+; JA  (unsigned above): 4294967295 &gt; 1?  YES -&gt; TAKEN
+; JG  (signed greater):       -1 &gt; 1?    NO  -&gt; NOT TAKEN</pre>
+                <p>The CMP sets the <strong>same flags</strong> for both jumps. The only difference is which flags each jump reads. This is why the naming matters:</p>
+                <ul>
+                    <li><strong>A</strong>bove / <strong>B</strong>elow = unsigned comparison (uses CF)</li>
+                    <li><strong>G</strong>reater / <strong>L</strong>ess = signed comparison (uses SF and OF)</li>
+                </ul>
+                <div class="important-note">If you use the wrong jump type, your code will seem to work for positive numbers (where signed and unsigned agree) but break for negative numbers or large unsigned values.</div>
+            </div>
+
+            <div class="mini-sim" data-code="mov eax, 15&#10;mov ecx, 20&#10;cmp eax, ecx">
+                <div class="mini-sim-header">
+                    <span>Try it: CMP 15 vs 20 (check flags for branch decision)</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="mini-sim" data-code="mov eax, -1&#10;mov ecx, 1&#10;cmp eax, ecx">
+                <div class="mini-sim-header">
+                    <span>Try it: CMP -1 vs 1 (unsigned says above, signed says less)</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
             <div class="practice-box">
-                <h3>How to trace branches</h3>
-                <ol>
-                    <li>Track register values up to the CMP/TEST</li>
-                    <li>Determine the flag values from the comparison</li>
-                    <li>Check the jump condition against those flags</li>
-                    <li>If taken: skip to the target label. If not: continue to next line.</li>
-                    <li>Keep tracking registers along whichever path was taken</li>
-                </ol>
-                <p>For your worksheet, write the register values at each step AND mark each jump as "TAKEN" or "NOT TAKEN".</p>
+                <h3>Practice: Trace This Branch</h3>
+                <p>What is EDX at the end of this code?</p>
+                <pre class="code-block">mov eax, 5
+mov ecx, 5
+cmp eax, ecx
+jne not_equal
+mov edx, 100
+jmp done
+not_equal:
+mov edx, 200
+done:</pre>
+                <p>Hint: CMP 5, 5 gives result 0. ZF=1. JNE checks ZF=0, which is false, so the jump is NOT TAKEN. Execution continues to the next line: <code>mov edx, 100</code>. EDX = ?</p>
             </div>
         </section>
 
@@ -1605,6 +1823,39 @@ idiv ecx</pre>
                     <div class="stack-entry local"><span class="saddr">[EBP-4]</span> <span class="sval">local_1</span> <span class="slabel">1st local variable</span></div>
                     <div class="stack-entry local"><span class="saddr">[EBP-8]</span> <span class="sval">local_2</span> <span class="slabel">2nd local variable</span></div>
                     <div class="stack-entry esp"><span class="saddr">[ESP]</span> <span class="sval">...</span> <span class="slabel">&larr; ESP points here (top of stack)</span></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Concrete PUSH/POP Example</h3>
+                <p>PUSH decreases ESP by 4 and stores a value. POP reads a value and increases ESP by 4. The stack is <strong>LIFO</strong> (last in, first out).</p>
+
+                <p><strong>Walkthrough:</strong> Starting with ESP = 0x0028FF80</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Step by step:</h4>
+                        <div class="snap-row"><span class="snap-label">Start:</span> <span class="snap-val">ESP = 0x0028FF80</span></div>
+                        <div class="snap-row"><span class="snap-label">push 42:</span> <span class="snap-changed">ESP = 0x0028FF7C, [ESP]=42</span></div>
+                        <div class="snap-row"><span class="snap-label">push 99:</span> <span class="snap-changed">ESP = 0x0028FF78, [ESP]=99</span></div>
+                        <div class="snap-row"><span class="snap-label">pop eax:</span> <span class="snap-changed">EAX = 99, ESP = 0x0028FF7C</span></div>
+                        <div class="snap-row"><span class="snap-label">pop ebx:</span> <span class="snap-changed">EBX = 42, ESP = 0x0028FF80</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>Final state:</h4>
+                        <div class="snap-row"><span class="snap-label">ESP =</span> <span class="snap-val">0x0028FF80 (back to start)</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">99 (last pushed = first popped)</span></div>
+                        <div class="snap-row"><span class="snap-label">EBX =</span> <span class="snap-changed">42 (first pushed = last popped)</span></div>
+                    </div>
+                </div>
+                <p>42 was pushed first but popped last. 99 was pushed last but popped first. That's LIFO.</p>
+
+                <div class="mini-sim" data-code="push 42&#10;push 99&#10;pop eax&#10;pop ebx">
+                    <div class="mini-sim-header">
+                        <span>Try it: PUSH two values, POP in reverse order</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
                 </div>
             </div>
 
@@ -1643,10 +1894,59 @@ ret               ; Return to caller</pre>
                 <p>After a CALL returns, the <strong>caller</strong> cleans up pushed arguments with <code>add esp, N</code> (cdecl convention).</p>
             </div>
 
+            <div class="concept-box">
+                <h3>Walkthrough: A Complete Function Call</h3>
+                <p>Let's trace every step of calling a function that takes one argument (42), with concrete ESP and EBP values.</p>
+
+                <p><strong>Starting state:</strong> ESP = 0x0028FF80, EBP = 0x0028FFA0 (caller's frame)</p>
+
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th>Step</th><th>Instruction</th><th>ESP becomes</th><th>EBP becomes</th><th>What happened</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>1</td><td><code>push 42</code></td><td>0x0028FF7C</td><td>(unchanged)</td><td>Argument pushed onto stack</td></tr>
+                        <tr><td>2</td><td><code>call myFunc</code></td><td>0x0028FF78</td><td>(unchanged)</td><td>Return address pushed, jump to myFunc</td></tr>
+                        <tr><td>3</td><td><code>push ebp</code></td><td>0x0028FF74</td><td>(unchanged)</td><td>Prologue: save caller's EBP</td></tr>
+                        <tr><td>4</td><td><code>mov ebp, esp</code></td><td>(unchanged)</td><td>0x0028FF74</td><td>Prologue: set up our base pointer</td></tr>
+                        <tr><td>5</td><td><code>sub esp, 8</code></td><td>0x0028FF6C</td><td>(unchanged)</td><td>Prologue: allocate space for 2 locals</td></tr>
+                        <tr><td colspan="5" style="color:var(--text-dim);text-align:center">... function body runs, [ebp+8] = 42 (the argument) ...</td></tr>
+                        <tr><td>6</td><td><code>mov esp, ebp</code></td><td>0x0028FF74</td><td>(unchanged)</td><td>Epilogue: deallocate locals</td></tr>
+                        <tr><td>7</td><td><code>pop ebp</code></td><td>0x0028FF78</td><td>0x0028FFA0</td><td>Epilogue: restore caller's EBP</td></tr>
+                        <tr><td>8</td><td><code>ret</code></td><td>0x0028FF7C</td><td>(unchanged)</td><td>Pop return address, jump back to caller</td></tr>
+                        <tr><td>9</td><td><code>add esp, 4</code></td><td>0x0028FF80</td><td>(unchanged)</td><td>Caller cleanup: remove 1 argument</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before the call:</h4>
+                        <div class="snap-row"><span class="snap-label">ESP =</span> <span class="snap-val">0x0028FF80</span></div>
+                        <div class="snap-row"><span class="snap-label">EBP =</span> <span class="snap-val">0x0028FFA0</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After return + cleanup:</h4>
+                        <div class="snap-row"><span class="snap-label">ESP =</span> <span class="snap-changed">0x0028FF80 (restored)</span></div>
+                        <div class="snap-row"><span class="snap-label">EBP =</span> <span class="snap-changed">0x0028FFA0 (restored)</span></div>
+                    </div>
+                </div>
+                <p>ESP and EBP are back to their original values. The prologue/epilogue and caller cleanup ensure the stack is always balanced.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Stack Frame Offsets</h3>
+                <p>A function starts with this prologue, and the caller pushed 2 arguments before CALL:</p>
+                <pre class="code-block">push ebp
+mov ebp, esp
+sub esp, 12</pre>
+                <p>What stack offset holds: (a) the first argument? (b) the second argument? (c) the first local variable?</p>
+                <p>Hint: After <code>mov ebp, esp</code>, EBP points at the saved old EBP. [EBP+4] = return address. [EBP+8] = first arg. [EBP+12] = second arg. [EBP-4] = first local. <code>sub esp, 12</code> makes room for 3 DWORDs of locals.</p>
+            </div>
+
             <div class="practice-box">
                 <h3>Tips for Stack Tracing</h3>
                 <ol>
-                    <li>Draw the stack on paper! Label each slot with its address (ebp-4, ebp-8, etc.) and current value.</li>
+                    <li>Draw the stack on paper! Label each slot with its address and current value.</li>
                     <li>When a CALL happens, note what was pushed as arguments (right-to-left).</li>
                     <li>In the called function, map [ebp+8] to the first argument, [ebp+12] to the second, etc.</li>
                     <li>Track the return value in EAX.</li>
@@ -1664,6 +1964,14 @@ ret               ; Return to caller</pre>
                 <h3>Zeroing a Register</h3>
                 <pre class="code-block">xor eax, eax    ; EAX = 0 (faster than mov eax, 0)</pre>
                 <p>XOR anything with itself gives 0. Compilers use this because it's 2 bytes vs 5 for <code>mov eax, 0</code>. When you see <code>xor reg, reg</code>, just read it as "reg = 0".</p>
+                <div class="mini-sim" data-code="mov eax, 12345&#10;xor eax, eax">
+                    <div class="mini-sim-header">
+                        <span>Try it: XOR zeroing</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">
@@ -1680,6 +1988,26 @@ jz  is_zero     ; Jump if EAX == 0</pre>
                 <p>LEA computes an address but <strong>doesn't access memory</strong>. Compilers abuse this for math: it can do addition, scaling (x2, x4, x8), and addition of a constant &mdash; all in one instruction, without affecting flags.</p>
                 <pre class="code-block">lea eax, [eax+eax*4]    ; EAX = EAX * 5
 lea eax, [ecx+edx]      ; EAX = ECX + EDX (without modifying ECX or EDX)</pre>
+                <p><strong>Why does <code>lea eax, [eax+eax*4]</code> give EAX*5?</strong> Break it down: the address expression is <code>eax + eax*4</code>. The CPU computes 1&times;EAX + 4&times;EAX = 5&times;EAX. LEA just stores the computed "address" &mdash; it never accesses memory.</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">7</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>lea eax, [eax+eax*4]</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">35 (7 * 5)</span></div>
+                    </div>
+                </div>
+                <p>Compilers chain these to avoid slow IMUL: <code>lea eax, [ecx+ecx*2]</code> = ECX*3, then <code>shl eax, 1</code> = ECX*6.</p>
+                <div class="mini-sim" data-code="mov eax, 7&#10;lea eax, [eax+eax*4]&#10;lea ecx, [eax+eax*2]">
+                    <div class="mini-sim-header">
+                        <span>Try it: LEA for multiply (EAX*5, then result*3)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">
@@ -1729,7 +2057,26 @@ push arg2
 push arg1
 call function
 add esp, 12     ; Caller cleans up 3 args * 4 bytes = 12</pre>
-                <p>The <code>add esp, N</code> after a CALL removes the pushed arguments. N / 4 = number of arguments pushed.</p>
+                <p>The <code>add esp, N</code> after a CALL removes the pushed arguments. <strong>N / 4 = number of arguments.</strong> So <code>add esp, 12</code> means 12 / 4 = 3 arguments were pushed. <code>add esp, 8</code> means 2 arguments. This is a quick way to reverse-engineer function calls.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Identify the Idiom</h3>
+                <p>What does each snippet do?</p>
+                <pre class="code-block">; Snippet 1:
+xor ecx, ecx
+
+; Snippet 2:
+test eax, eax
+jz skip
+
+; Snippet 3:
+lea eax, [ecx+ecx*8]
+
+; Snippet 4:
+call some_function
+add esp, 16</pre>
+                <p>Hints: (1) Zeroing ECX. (2) Jump if EAX is zero. (3) EAX = ECX * 9 (no memory access despite the brackets). (4) Cleaning up 4 arguments (16 / 4 = 4) from the stack after the function call.</p>
             </div>
         </section>
 
