@@ -299,7 +299,7 @@ Examples:
                                 <tr><td class="sref-name">0xFF, -0xFF</td><td>Hex with 0x prefix</td></tr>
                                 <tr><td class="sref-name">0FFh, 0Ch</td><td>IDA-style hex with h suffix</td></tr>
                                 <tr><td class="sref-name">0b11001100</td><td>Binary with 0b prefix</td></tr>
-                                <tr><td class="sref-name">11001100b</td><td>Binary with b suffix (NASM)</td></tr>
+                                <tr><td class="sref-name">11001100b</td><td>Binary with b suffix (NASM assembler style)</td></tr>
                                 <tr><td class="sref-name">'A', '0'</td><td>Character literal (ASCII value)</td></tr>
                                 <tr><td class="sref-name">[ebp-4]</td><td>Memory at address EBP-4</td></tr>
                                 <tr><td class="sref-name">[ebp+var_4]</td><td>IDA var_N syntax (becomes [ebp-4])</td></tr>
@@ -624,14 +624,14 @@ Examples:
                 <p>x86 has 8 general-purpose 32-bit registers. Each has a history and typical (but not mandatory) use:</p>
                 <table class="ref-table">
                     <tr><th>Register</th><th>Name</th><th>Typical Use</th></tr>
-                    <tr><td><code>EAX</code></td><td>Accumulator</td><td>Return values, MUL/DIV implicit operand</td></tr>
-                    <tr><td><code>EBX</code></td><td>Base</td><td>General purpose (callee-saved)</td></tr>
+                    <tr><td><code>EAX</code></td><td>Accumulator</td><td>Return values; MUL/DIV read and write this automatically</td></tr>
+                    <tr><td><code>EBX</code></td><td>Base</td><td>General purpose (functions must preserve this for the caller)</td></tr>
                     <tr><td><code>ECX</code></td><td>Counter</td><td>Loop counters, shift counts</td></tr>
-                    <tr><td><code>EDX</code></td><td>Data</td><td>MUL/DIV overflow, I/O ports</td></tr>
-                    <tr><td><code>ESI</code></td><td>Source Index</td><td>String source pointer (callee-saved)</td></tr>
-                    <tr><td><code>EDI</code></td><td>Destination Index</td><td>String dest pointer (callee-saved)</td></tr>
-                    <tr><td><code>EBP</code></td><td>Base Pointer</td><td>Stack frame base (callee-saved)</td></tr>
-                    <tr><td><code>ESP</code></td><td>Stack Pointer</td><td>Top of stack (don't clobber!)</td></tr>
+                    <tr><td><code>EDX</code></td><td>Data</td><td>MUL/DIV overflow (upper half of result)</td></tr>
+                    <tr><td><code>ESI</code></td><td>Source Index</td><td>General purpose (functions must preserve this for the caller)</td></tr>
+                    <tr><td><code>EDI</code></td><td>Destination Index</td><td>General purpose (functions must preserve this for the caller)</td></tr>
+                    <tr><td><code>EBP</code></td><td>Base Pointer</td><td>Stack frame base (functions must preserve this for the caller)</td></tr>
+                    <tr><td><code>ESP</code></td><td>Stack Pointer</td><td>Top of stack (never overwrite this or the program will crash)</td></tr>
                 </table>
             </div>
 
@@ -726,7 +726,7 @@ Examples:
                     <div class="reg-map-row">
                         <div class="reg-map-label">
                             <span class="reg-map-name">EDI</span>
-                            <span class="reg-map-use">Dest Index</span>
+                            <span class="reg-map-use">Destination Index</span>
                         </div>
                         <div class="reg-bar">
                             <div class="reg-segment upper16"><span class="reg-seg-name-dim">(no name)</span></div>
@@ -783,13 +783,13 @@ Examples:
                 <h3>Special Implicit Uses</h3>
                 <p>Some instructions use specific registers implicitly (you don't name them in the operands):</p>
                 <table class="ref-table">
-                    <tr><th>Instruction</th><th>Implicit Registers</th></tr>
-                    <tr><td><code>MUL / IMUL</code> (1-op)</td><td>EAX (input) &rarr; EDX:EAX (output)</td></tr>
-                    <tr><td><code>DIV / IDIV</code></td><td>EDX:EAX (input) &rarr; EAX (quotient), EDX (remainder)</td></tr>
-                    <tr><td><code>CDQ</code></td><td>EAX (input) &rarr; EDX (sign extension)</td></tr>
-                    <tr><td><code>PUSH / POP</code></td><td>ESP (modified automatically)</td></tr>
-                    <tr><td><code>CALL / RET</code></td><td>ESP (modified), EIP (instruction pointer)</td></tr>
-                    <tr><td><code>LOOP</code></td><td>ECX (decremented each iteration)</td></tr>
+                    <tr><th>Instruction</th><th>What It Does Behind the Scenes</th><th>Registers Affected</th></tr>
+                    <tr><td><code>MUL / IMUL</code> (1-op)</td><td>Multiplies EAX by your operand, stores the full result across two registers</td><td>Reads EAX, writes EDX:EAX</td></tr>
+                    <tr><td><code>DIV / IDIV</code></td><td>Divides the combined EDX:EAX by your operand, gives quotient and remainder</td><td>Reads EDX:EAX, writes EAX + EDX</td></tr>
+                    <tr><td><code>CDQ</code></td><td>Fills EDX based on the sign of EAX (prepares for signed divide)</td><td>Reads EAX, writes EDX</td></tr>
+                    <tr><td><code>PUSH / POP</code></td><td>Moves the stack pointer down (PUSH) or up (POP) by 4 bytes</td><td>Modifies ESP automatically</td></tr>
+                    <tr><td><code>CALL / RET</code></td><td>CALL saves the return address and jumps; RET pops it and jumps back</td><td>Modifies ESP; changes EIP (the instruction pointer &mdash; where the CPU is executing)</td></tr>
+                    <tr><td><code>LOOP</code></td><td>Decrements the counter and jumps if it's not zero yet</td><td>Decrements ECX each iteration</td></tr>
                 </table>
             </div>
         </section>
@@ -902,8 +902,8 @@ Examples:
                             <li><code>CALL, RET</code></li>
                             <li><code>NOT</code></li>
                             <li><code>XCHG</code></li>
-                            <li><code>CDQ</code></li>
-                            <li><code>NOP</code></li>
+                            <li><code>CDQ</code> (sign-extend EAX into EDX)</li>
+                            <li><code>NOP</code> (No Operation &mdash; does nothing)</li>
                         </ul>
                     </div>
                 </div>
@@ -916,9 +916,9 @@ Examples:
                 <p><strong>OF (Overflow Flag)</strong> = signed arithmetic went out of range.</p>
                 <p>The CPU sets <em>both</em> flags on every arithmetic operation. Your choice of jump instruction determines which one matters:</p>
                 <table class="ref-table">
-                    <tr><th>Unsigned jumps (use CF)</th><th>Signed jumps (use OF/SF)</th></tr>
+                    <tr><th>Unsigned jumps (check Carry Flag)</th><th>Signed jumps (check Overflow + Sign Flags)</th></tr>
                     <tr><td><code>JA, JAE, JB, JBE</code></td><td><code>JG, JGE, JL, JLE</code></td></tr>
-                    <tr><td>Above / Below</td><td>Greater / Less</td></tr>
+                    <tr><td>Above / Below (think: positive-only numbers)</td><td>Greater / Less (think: numbers with +/- signs)</td></tr>
                 </table>
                 <p>Memory aid: <strong>A</strong>bove/<strong>B</strong>elow = unsigned. <strong>G</strong>reater/<strong>L</strong>ess = signed.</p>
             </div>
@@ -929,9 +929,9 @@ Examples:
                 <table class="ref-table">
                     <tr><th>Condition</th><th>ZF</th><th>CF</th><th>Jump that fires</th></tr>
                     <tr><td>A == B</td><td>1</td><td>0</td><td><code>JE / JZ</code></td></tr>
-                    <tr><td>A != B</td><td>0</td><td>?</td><td><code>JNE / JNZ</code></td></tr>
+                    <tr><td>A != B</td><td>0</td><td>either</td><td><code>JNE / JNZ</code></td></tr>
                     <tr><td>A &lt; B (unsigned)</td><td>0</td><td>1</td><td><code>JB</code></td></tr>
-                    <tr><td>A &le; B (unsigned)</td><td>?</td><td>?</td><td><code>JBE</code> (CF=1 or ZF=1)</td></tr>
+                    <tr><td>A &le; B (unsigned)</td><td>either</td><td>either</td><td><code>JBE</code> (CF=1 or ZF=1)</td></tr>
                     <tr><td>A &gt; B (unsigned)</td><td>0</td><td>0</td><td><code>JA</code> (CF=0 and ZF=0)</td></tr>
                 </table>
             </div>
@@ -1018,13 +1018,13 @@ cmp eax, ecx</pre>
             <div class="concept-box">
                 <h3>Data Sizes</h3>
                 <table class="ref-table">
-                    <tr><th>Name</th><th>Size</th><th>Registers</th><th>Directive</th></tr>
-                    <tr><td>BYTE</td><td>1 byte (8 bits)</td><td>AL, BL, CL, DL</td><td><code>byte ptr</code></td></tr>
-                    <tr><td>WORD</td><td>2 bytes (16 bits)</td><td>AX, BX, CX, DX</td><td><code>word ptr</code></td></tr>
-                    <tr><td>DWORD</td><td>4 bytes (32 bits)</td><td>EAX, EBX, ECX, EDX</td><td><code>dword ptr</code></td></tr>
-                    <tr><td>QWORD</td><td>8 bytes (64 bits)</td><td>EDX:EAX (pair)</td><td><code>qword ptr</code></td></tr>
+                    <tr><th>Name</th><th>Full Name</th><th>Size</th><th>Registers</th><th>Size hint in code</th></tr>
+                    <tr><td>BYTE</td><td>Byte</td><td>1 byte (8 bits)</td><td>AL, BL, CL, DL</td><td><code>byte ptr</code></td></tr>
+                    <tr><td>WORD</td><td>Word</td><td>2 bytes (16 bits)</td><td>AX, BX, CX, DX</td><td><code>word ptr</code></td></tr>
+                    <tr><td>DWORD</td><td>Double Word</td><td>4 bytes (32 bits)</td><td>EAX, EBX, ECX, EDX</td><td><code>dword ptr</code></td></tr>
+                    <tr><td>QWORD</td><td>Quad Word</td><td>8 bytes (64 bits)</td><td>EDX:EAX (two registers as a pair)</td><td><code>qword ptr</code></td></tr>
                 </table>
-                <p>When you see <code>dword ptr [ebp-8]</code>, it means: access 4 bytes of memory starting at address <code>ebp-8</code>.</p>
+                <p>The <code>ptr</code> in <code>dword ptr</code> stands for "pointer" and tells the assembler how many bytes to read or write. When you see <code>dword ptr [ebp-8]</code>, it means: access 4 bytes of memory starting at address <code>ebp-8</code>.</p>
             </div>
 
             <div class="concept-box">
@@ -1057,13 +1057,13 @@ cmp eax, ecx</pre>
             <div class="concept-box">
                 <h3>Common Addressing Modes</h3>
                 <table class="ref-table">
-                    <tr><th>Syntax</th><th>Meaning</th><th>Common Use</th></tr>
-                    <tr><td><code>[ebp-4]</code></td><td>Memory at EBP minus 4</td><td>Local variable</td></tr>
-                    <tr><td><code>[ebp+8]</code></td><td>Memory at EBP plus 8</td><td>Function argument</td></tr>
-                    <tr><td><code>[eax]</code></td><td>Memory at address in EAX</td><td>Pointer dereference</td></tr>
-                    <tr><td><code>[eax+ecx]</code></td><td>Base + index</td><td>Array access</td></tr>
-                    <tr><td><code>[eax+ecx*4]</code></td><td>Base + index * scale</td><td>Array of DWORDs</td></tr>
-                    <tr><td><code>[eax+ecx*4+8]</code></td><td>Base + index * scale + offset</td><td>Struct array member</td></tr>
+                    <tr><th>Syntax</th><th>What the CPU Does</th><th>When You See This</th></tr>
+                    <tr><td><code>[ebp-4]</code></td><td>Go to address EBP minus 4, read/write there</td><td>Accessing a local variable in a function</td></tr>
+                    <tr><td><code>[ebp+8]</code></td><td>Go to address EBP plus 8, read/write there</td><td>Accessing a function argument passed by the caller</td></tr>
+                    <tr><td><code>[eax]</code></td><td>Use the value in EAX as a memory address, go there</td><td>Following an address stored in a register (like *ptr in C)</td></tr>
+                    <tr><td><code>[eax+ecx]</code></td><td>Add EAX and ECX, go to that address</td><td>Accessing an element in a byte array</td></tr>
+                    <tr><td><code>[eax+ecx*4]</code></td><td>Add EAX + ECX&times;4, go to that address</td><td>Accessing an element in an array of 4-byte values</td></tr>
+                    <tr><td><code>[eax+ecx*4+8]</code></td><td>Add EAX + ECX&times;4 + 8, go to that address</td><td>Accessing a field inside an array of structures</td></tr>
                 </table>
 
                 <p><strong>Worked Example: Array Access</strong></p>
@@ -1084,7 +1084,7 @@ mov word ptr [ebp-2], 1000  ; Write 2 bytes</pre>
 
             <div class="concept-box">
                 <h3>IDA Stack Variable Notation</h3>
-                <p>In IDA Pro, you'll see named variables instead of raw offsets:</p>
+                <p>IDA Pro (Interactive DisAssembler) is a popular reverse engineering tool that turns compiled programs back into assembly. In IDA, you'll see named variables instead of raw offsets:</p>
                 <pre class="code-block">[ebp+var_4]   = [ebp-4]    ; IDA names local var at offset -4
 [ebp+var_8]   = [ebp-8]    ; local var at offset -8
 [ebp+arg_0]   = [ebp+8]    ; first function argument
@@ -1893,7 +1893,7 @@ ret               ; Return to caller</pre>
                 <h3>CALL and RET</h3>
                 <p><code>CALL func</code>: Pushes the return address (next instruction) onto the stack, then jumps to func.</p>
                 <p><code>RET</code>: Pops the return address from the stack and jumps to it.</p>
-                <p>After a CALL returns, the <strong>caller</strong> cleans up pushed arguments with <code>add esp, N</code> (cdecl convention).</p>
+                <p>After a CALL returns, the <strong>caller</strong> cleans up pushed arguments with <code>add esp, N</code>. This is called the <strong>cdecl</strong> (C Declaration) calling convention &mdash; the rule that says the caller is responsible for cleaning up the stack.</p>
             </div>
 
             <div class="concept-box">
@@ -2053,7 +2053,7 @@ jz skip            ; If zero, skip ahead</pre>
             </div>
 
             <div class="concept-box">
-                <h3>Calling Convention Cleanup (cdecl)</h3>
+                <h3>Calling Convention Cleanup (cdecl = "C Declaration")</h3>
                 <pre class="code-block">push arg3       ; Push arguments right-to-left
 push arg2
 push arg1
@@ -2085,7 +2085,7 @@ add esp, 16</pre>
         <!-- Learn: Functional Analysis -->
         <section id="learn-func-analysis" class="section">
             <h1>Functional Analysis</h1>
-            <p>One of the most important RE skills: read a function's assembly and describe what it does in plain terms like <code>f(a, b) = a + b</code>.</p>
+            <p>One of the most important reverse engineering skills: read a function's assembly and describe what it does in plain terms like <code>f(a, b) = a + b</code>.</p>
 
             <div class="concept-box">
                 <h3>The Approach</h3>
@@ -2169,7 +2169,7 @@ add esp, 16</pre>
 
             <div class="concept-box">
                 <h3>Reading the Calling Convention</h3>
-                <p>Arguments are pushed <strong>right-to-left</strong> in cdecl. So the push order tells you which argument is which:</p>
+                <p>Arguments are pushed <strong>right-to-left</strong> in the cdecl convention. So the push order tells you which argument is which:</p>
                 <pre class="code-block">push [ebp+var_8]    ; This becomes arg_2 (third parameter)
 push [ebp+var_C]    ; This becomes arg_1 (second parameter)
 push [ebp+var_14]   ; This becomes arg_0 (first parameter)
@@ -2298,12 +2298,13 @@ loop_done:</pre>
 
             <div class="concept-box">
                 <h3>Recognizing the Pattern</h3>
+                <p>In the table below, <code>Jcc</code> means "any conditional jump" (JE, JNE, JL, JG, JB, JA, etc. &mdash; the "cc" stands for "condition code").</p>
                 <table class="ref-table">
                     <tr><th>High-Level</th><th>Assembly Pattern</th></tr>
-                    <tr><td>if/else</td><td><code>CMP</code> &rarr; <code>Jcc</code> &rarr; if-body &rarr; <code>JMP</code> &rarr; else-body</td></tr>
-                    <tr><td>while</td><td>label &rarr; <code>CMP/TEST</code> &rarr; <code>Jcc</code> out &rarr; body &rarr; <code>JMP</code> back</td></tr>
-                    <tr><td>do-while</td><td>label &rarr; body &rarr; <code>CMP/TEST</code> &rarr; <code>Jcc</code> back</td></tr>
-                    <tr><td>for</td><td>init &rarr; label &rarr; <code>CMP</code> &rarr; <code>Jcc</code> out &rarr; body &rarr; inc &rarr; <code>JMP</code> back</td></tr>
+                    <tr><td>if/else</td><td><code>CMP</code> &rarr; conditional jump &rarr; if-body &rarr; <code>JMP</code> &rarr; else-body</td></tr>
+                    <tr><td>while</td><td>label &rarr; <code>CMP/TEST</code> &rarr; conditional jump out &rarr; body &rarr; <code>JMP</code> back</td></tr>
+                    <tr><td>do-while</td><td>label &rarr; body &rarr; <code>CMP/TEST</code> &rarr; conditional jump back</td></tr>
+                    <tr><td>for</td><td>init &rarr; label &rarr; <code>CMP</code> &rarr; conditional jump out &rarr; body &rarr; increment &rarr; <code>JMP</code> back</td></tr>
                     <tr><td>switch (small)</td><td>Chain of <code>CMP</code> + <code>JE</code> for each case</td></tr>
                     <tr><td>switch (large)</td><td><code>SUB</code> + <code>CMP</code> + <code>JA</code> default &rarr; table lookup &rarr; indirect <code>JMP</code></td></tr>
                 </table>
@@ -2459,11 +2460,11 @@ loop_done:</pre>
                     </tr>
                     <tr>
                         <td>Network protocols</td>
-                        <td>Network uses big endian. Receiving raw bytes on x86 requires byte-swapping (e.g., <code>ntohs</code>, <code>ntohl</code>)</td>
+                        <td>Network protocols use big endian. Receiving raw bytes on x86 requires byte-swapping using C functions like <code>ntohs</code> (Network TO Host Short) and <code>ntohl</code> (Network TO Host Long)</td>
                     </tr>
                     <tr>
-                        <td>Casting pointers</td>
-                        <td><code>*(char*)&amp;myInt</code> gives different bytes on LE vs BE systems</td>
+                        <td>Reading individual bytes of a multi-byte value</td>
+                        <td>Reading the first byte of a 4-byte integer gives a different result on little-endian vs big-endian systems</td>
                     </tr>
                 </table>
             </div>
