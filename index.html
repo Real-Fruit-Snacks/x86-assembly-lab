@@ -33,6 +33,10 @@
             <li class="nav-group-label">Analysis</li>
             <li><a href="#learn-func-analysis" class="nav-link" data-section="learn-func-analysis">Functional Analysis</a></li>
             <li><a href="#learn-control" class="nav-link" data-section="learn-control">Control Structures</a></li>
+            <li class="nav-group-label">Advanced</li>
+            <li><a href="#learn-extensions" class="nav-link" data-section="learn-extensions">Extension Instructions</a></li>
+            <li><a href="#learn-pointers" class="nav-link" data-section="learn-pointers">Pointers</a></li>
+            <li><a href="#learn-variables" class="nav-link" data-section="learn-variables">Variables &amp; Scope</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -82,6 +86,10 @@
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
                     <p>Functional Analysis (reading a function and summarizing it) and Control Structures (if/else, loops, switch/jump tables) in assembly.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('learn-extensions')">
+                    <h3>Advanced Topics</h3>
+                    <p>Extension instructions (MOVSX/MOVZX), pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and more.</p>
                 </div>
             </div>
 
@@ -134,6 +142,7 @@
                                         <option value="mov">MOV</option>
                                         <option value="xchg">XCHG (swap)</option>
                                         <option value="lea">LEA (address math)</option>
+                                        <option value="movsx-movzx">MOVSX &amp; MOVZX</option>
                                     </optgroup>
                                     <optgroup label="Arithmetic">
                                         <option value="add-sub">ADD &amp; SUB</option>
@@ -2318,6 +2327,375 @@ loop_done:</pre>
                     <li>Load the <strong>"Loop (DEC + JNZ)"</strong> example to see a do-while loop</li>
                     <li>For your worksheet's Control Structures lab, trace which branches are taken by tracking the variable values and flag states at each CMP/TEST</li>
                 </ul>
+            </div>
+        </section>
+
+        <!-- Learn: Extension Instructions -->
+        <section id="learn-extensions" class="section">
+            <h1>Extension Instructions</h1>
+            <p>When you need to combine values of different sizes (like adding an 8-bit value to a 32-bit value), you need to <strong>extend</strong> the smaller value first. There are two ways: <strong>sign extension</strong> (for signed numbers) and <strong>zero extension</strong> (for unsigned numbers). Using the wrong one gives the wrong answer.</p>
+
+            <div class="concept-box">
+                <h3>The Problem: Same Bits, Different Meaning</h3>
+                <p>Consider the 8-bit value <code>0xFB</code> sitting in AL. What 32-bit number does it represent?</p>
+                <ul>
+                    <li><strong>If it's signed:</strong> 0xFB = <strong>-5</strong> (the high bit is 1, so it's negative in two's complement)</li>
+                    <li><strong>If it's unsigned:</strong> 0xFB = <strong>251</strong> (just a plain positive number)</li>
+                </ul>
+                <p>When you extend this to 32 bits, you get completely different results:</p>
+                <ul>
+                    <li><strong>Sign extension:</strong> 0xFB &rarr; <code>0xFFFFFFFB</code> (-5 as a 32-bit signed number)</li>
+                    <li><strong>Zero extension:</strong> 0xFB &rarr; <code>0x000000FB</code> (251 as a 32-bit unsigned number)</li>
+                </ul>
+                <p>The same 8 bits produce completely different 32-bit values. You must choose the right extension based on whether the value is signed or unsigned.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Extension Instructions Cheat Sheet</h3>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Instruction</th>
+                            <th>Plain English</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>MOVSX dest, src</code></td>
+                            <td>Move with Sign Extension</td>
+                            <td>8 or 16-bit reg/mem</td>
+                            <td>16 or 32-bit register</td>
+                            <td>Signed</td>
+                        </tr>
+                        <tr>
+                            <td><code>MOVZX dest, src</code></td>
+                            <td>Move with Zero Extension</td>
+                            <td>8 or 16-bit reg/mem</td>
+                            <td>16 or 32-bit register</td>
+                            <td>Unsigned</td>
+                        </tr>
+                        <tr>
+                            <td><code>CBW</code></td>
+                            <td>Convert Byte to Word</td>
+                            <td>AL</td>
+                            <td>AX</td>
+                            <td>Signed</td>
+                        </tr>
+                        <tr>
+                            <td><code>CWD</code></td>
+                            <td>Convert Word to Double</td>
+                            <td>AX</td>
+                            <td>DX:AX</td>
+                            <td>Signed</td>
+                        </tr>
+                        <tr>
+                            <td><code>CDQ</code></td>
+                            <td>Convert Double to Quad</td>
+                            <td>EAX</td>
+                            <td>EDX:EAX</td>
+                            <td>Signed</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p>MOVSX and MOVZX are the general-purpose versions &mdash; you pick the source and destination. CBW, CWD, and CDQ are shorthand forms that always use the accumulator registers (AL/AX/EAX). CDQ is covered in detail in the <a href="#learn-muldiv">Multiply &amp; Divide</a> section because it's required before IDIV.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>MOVSX Walkthrough (Sign Extension)</h3>
+                <p><code>movsx eax, al</code> &mdash; sign-extends the 8-bit value in AL to fill all 32 bits of EAX.</p>
+                <p><strong>Walkthrough:</strong> AL = 0xFB (-5 signed, 251 unsigned). After <code>movsx eax, al</code>:</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">AL =</span> <span class="snap-val">0xFB (251 unsigned, -5 signed)</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">0x??????FB (upper bits unknown)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>movsx eax, al</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">0xFFFFFFFB (-5)</span></div>
+                    </div>
+                </div>
+                <p>The sign bit (1) was copied into all the upper bits. The value -5 is preserved correctly as a 32-bit signed number.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>MOVZX Walkthrough (Zero Extension)</h3>
+                <p><code>movzx eax, al</code> &mdash; zero-extends the 8-bit value in AL to fill all 32 bits of EAX.</p>
+                <p><strong>Walkthrough:</strong> AL = 0xFB (same bits as above). After <code>movzx eax, al</code>:</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">AL =</span> <span class="snap-val">0xFB (251 unsigned, -5 signed)</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">0x??????FB (upper bits unknown)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>movzx eax, al</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">0x000000FB (251)</span></div>
+                    </div>
+                </div>
+                <p>The upper bits are filled with zeros. The value 251 is preserved correctly as a 32-bit unsigned number.</p>
+            </div>
+
+            <div class="important-note">Same 8 bits (0xFB) produce completely different 32-bit results. MOVSX gives -5, MOVZX gives 251. The rule is simple: <strong>MOVSX for signed values, MOVZX for unsigned values.</strong> If you use the wrong one, your math will be wrong.</div>
+
+            <div class="concept-box">
+                <h3>Try it: Sign-extend 0xFB (= -5 signed)</h3>
+                <div class="mini-sim" data-code="mov al, 0xFB&#10;movsx eax, al">
+                    <div class="mini-sim-header">
+                        <span>Try it: Sign-extend 0xFB (= -5 signed)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Try it: Zero-extend 0xFB (= 251 unsigned)</h3>
+                <div class="mini-sim" data-code="mov al, 0xFB&#10;movzx eax, al">
+                    <div class="mini-sim-header">
+                        <span>Try it: Zero-extend 0xFB (= 251 unsigned)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Common Mistake: Forgetting to Extend Before Arithmetic</h3>
+                <p>If you load a byte into AL and then immediately use EAX in a 32-bit operation, the upper 24 bits of EAX still contain whatever was there before &mdash; leftover garbage from a previous instruction.</p>
+                <pre class="code-block">mov al, [ebp+8]       ; Load a byte into AL
+add eax, ebx          ; BUG: upper 24 bits of EAX are garbage!</pre>
+                <p>The fix is to always extend first:</p>
+                <pre class="code-block">mov al, [ebp+8]       ; Load a byte into AL
+movsx eax, al         ; Now all 32 bits are correct (signed)
+add eax, ebx          ; Safe: EAX is a proper 32-bit value</pre>
+                <p>Or, if the value is unsigned:</p>
+                <pre class="code-block">movzx eax, byte [ebp+8]   ; Load AND zero-extend in one step
+add eax, ebx               ; Safe: EAX is a proper 32-bit value</pre>
+                <p>The single-instruction form (<code>movzx eax, byte [ebp+8]</code>) is cleaner and what compilers typically generate.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice</h3>
+                <p>AL contains <code>0x80</code>. What is EAX after each instruction?</p>
+                <ul>
+                    <li><code>MOVSX EAX, AL</code> &mdash; what value is in EAX?</li>
+                    <li><code>MOVZX EAX, AL</code> &mdash; what value is in EAX?</li>
+                </ul>
+                <p><strong>Hint:</strong> 0x80 in binary is <code>10000000</code>. As an unsigned byte, that's 128. As a signed byte, that's -128 (the most negative 8-bit signed value). Sign extension copies the leading 1 into all upper bits; zero extension fills them with 0.</p>
+                <p><strong>Answers:</strong> MOVSX gives <code>0xFFFFFF80</code> (-128). MOVZX gives <code>0x00000080</code> (128).</p>
+            </div>
+        </section>
+
+        <!-- Learn: Pointers -->
+        <section id="learn-pointers" class="section">
+            <h1>Pointers</h1>
+            <p>A pointer is just a number that happens to be a memory address. In assembly, there's no special "pointer type" &mdash; any register can hold an address. The brackets <code>[ ]</code> tell the CPU to use a value as an address and go to that memory location.</p>
+
+            <div class="concept-box">
+                <h3>Pointer Read Pattern</h3>
+                <p>The most common pointer pattern: load an address from a function argument, then read through it.</p>
+                <pre class="code-block">mov eax, [ebp+8]    ; Load the pointer (an address) from the first argument
+mov ebx, [eax]      ; Follow the pointer: go to that address, read the value there</pre>
+                <p>The double dereference is the key clue: <code>[ebp+8]</code> gives us an address, then <code>[eax]</code> follows that address. <strong>If a value gets used inside brackets, it must be a pointer.</strong></p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Pointer Write Pattern</h3>
+                <p>Writing through a pointer modifies data at a remote memory location.</p>
+                <pre class="code-block">mov eax, [ebp+8]    ; Load the pointer from the first argument
+mov [eax], 5        ; Write 5 to the memory location the pointer points to</pre>
+                <p>This modifies data at whatever address the pointer holds. The function's argument is an address, and we're writing through it. This is how functions modify the caller's variables.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>LEA &mdash; Getting an Address</h3>
+                <p>LEA (Load Effective Address) gives you the address OF something, without reading memory. It computes the address but does not access it.</p>
+                <pre class="code-block">lea ecx, [ebp-8]    ; ECX = the address of the local variable at ebp-8
+push ecx            ; Pass that address to a function (pass by reference)
+call some_function</pre>
+                <p>LEA is the opposite of brackets: <code>mov eax, [ebp-8]</code> reads the <strong>value</strong> at that address, but <code>lea eax, [ebp-8]</code> gives you the <strong>address itself</strong>.</p>
+
+                <p><strong>Walkthrough:</strong> Suppose EBP = 0x0028FF74 and the value stored at [ebp-8] is 42.</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4><code>mov eax, [ebp-8]</code> (reads value):</h4>
+                        <div class="snap-row"><span class="snap-label">EBP =</span> <span class="snap-val">0x0028FF74</span></div>
+                        <div class="snap-row"><span class="snap-label">[0x0028FF6C] =</span> <span class="snap-val">42 (value in memory)</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX &larr;</span> <span class="snap-changed">42 (the value)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4><code>lea eax, [ebp-8]</code> (gets address):</h4>
+                        <div class="snap-row"><span class="snap-label">EBP =</span> <span class="snap-val">0x0028FF74</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX &larr;</span> <span class="snap-changed">0x0028FF6C (the address itself)</span></div>
+                    </div>
+                </div>
+                <p>MOV reads what's at the address. LEA computes the address without touching memory.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Pass by Value vs Pass by Reference</h3>
+                <p>In high-level languages, you pass arguments "by value" or "by reference." In assembly, you can see exactly which one is happening:</p>
+                <p><strong>By Value</strong> &mdash; pushes the number itself. The function gets a copy. Changes don't affect the original:</p>
+                <pre class="code-block">push [ebp-4]        ; Push the VALUE of the local variable
+call some_function   ; Function gets a copy &mdash; can't change our local</pre>
+                <p><strong>By Reference</strong> &mdash; pushes the address. The function can modify the original through the pointer:</p>
+                <pre class="code-block">lea ecx, [ebp-4]    ; Get the ADDRESS of the local variable
+push ecx            ; Push that address
+call some_function   ; Function can write through the pointer to change our local</pre>
+                <div class="important-note">How to tell: if you see <code>LEA</code> before a <code>PUSH</code>, it's passing a pointer (by reference). If you see a direct <code>PUSH</code> of a value or memory contents, it's by value.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>How to Spot a Pointer</h3>
+                <p>Use these rules to identify when a value is being used as a pointer:</p>
+                <ul>
+                    <li><strong>Used inside brackets later:</strong> If a register's value is loaded and then used inside brackets (e.g., <code>mov eax, [ebp+8]</code> then <code>mov ebx, [eax]</code>), then <code>[ebp+8]</code> holds a pointer.</li>
+                    <li><strong>LEA gives its address:</strong> If <code>LEA</code> is used to compute an address of a stack variable (e.g., <code>lea ecx, [ebp-4]</code>), then ECX is a pointer.</li>
+                    <li><strong>Passed to a known function:</strong> If a value is passed to a function that expects an address (like <code>strcpy</code>, <code>printf</code> with <code>%s</code>, or <code>scanf</code>), it's a pointer.</li>
+                    <li><strong>Written through:</strong> If you see <code>mov [eax], value</code>, then EAX must be a pointer &mdash; it's being used as a destination address.</li>
+                </ul>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Which Argument Is a Pointer?</h3>
+                <p>Read the code below and identify which function argument is a pointer and which is a plain value:</p>
+                <pre class="code-block">mov eax, [ebp+8]
+mov ebx, [eax]
+add ebx, [ebp+12]
+mov [eax], ebx</pre>
+                <p><strong>Hint:</strong> EAX is loaded from <code>[ebp+8]</code>, then used inside brackets as <code>[eax]</code>. That means <code>[ebp+8]</code> is a pointer. <code>[ebp+12]</code> is used directly in ADD &mdash; its value is added, not dereferenced &mdash; so it's a plain integer value.</p>
+                <p><strong>In plain English:</strong> This function takes a pointer to an integer and a plain integer. It reads the value at the pointer, adds the second argument to it, and writes the result back through the pointer. In C, this would be something like: <code>*arg1 = *arg1 + arg2;</code></p>
+            </div>
+        </section>
+
+        <!-- Learn: Variables & Scope -->
+        <section id="learn-variables" class="section">
+            <h1>Variables &amp; Scope</h1>
+            <p>In high-level languages, you declare variables with types and names. In assembly, there are no declarations &mdash; variables are just memory locations or registers. But you can identify what kind of variable something is by looking at <strong>how it's accessed</strong>.</p>
+
+            <div class="concept-box">
+                <h3>The Four Variable Types</h3>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Variable Type</th>
+                            <th>How It Looks in Assembly</th>
+                            <th>How to Recognize It</th>
+                            <th>Lifetime</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Local variable</td>
+                            <td><code>[ebp-4]</code>, <code>[ebp-8]</code></td>
+                            <td>Negative offset from EBP</td>
+                            <td>Only during this function</td>
+                        </tr>
+                        <tr>
+                            <td>Function argument</td>
+                            <td><code>[ebp+8]</code>, <code>[ebp+12]</code></td>
+                            <td>Positive offset from EBP (past +4)</td>
+                            <td>Passed by caller</td>
+                        </tr>
+                        <tr>
+                            <td>Global variable</td>
+                            <td><code>[0x00405000]</code></td>
+                            <td>Fixed hex address (no register)</td>
+                            <td>Entire program</td>
+                        </tr>
+                        <tr>
+                            <td>Constant</td>
+                            <td><code>mov eax, 5</code></td>
+                            <td>Immediate value in the instruction</td>
+                            <td>Never changes</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Local Variables</h3>
+                <p>Local variables live on the stack. They're created during the function prologue (<code>sub esp, N</code>) and destroyed during the epilogue. You access them with <strong>negative offsets from EBP</strong>.</p>
+                <pre class="code-block">push ebp
+mov ebp, esp
+sub esp, 8          ; Space for 2 local DWORDs (4 bytes each)
+mov [ebp-4], 10     ; local_1 = 10
+mov [ebp-8], 20     ; local_2 = 20</pre>
+                <p>After the function returns, these stack locations are gone &mdash; other functions will reuse that stack space. This is why local variables don't persist between function calls.</p>
+                <div class="important-note">The first local variable is at <code>[ebp-4]</code>, the second at <code>[ebp-8]</code>, and so on. Each DWORD (32-bit value) takes 4 bytes, so the offsets grow by 4.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Function Arguments</h3>
+                <p>Arguments are pushed onto the stack by the caller before <code>CALL</code>. Inside the called function, they're at <strong>positive offsets from EBP</strong>, starting at <code>[ebp+8]</code>.</p>
+                <pre class="code-block">; Caller side:
+push 42             ; Second argument (pushed first &mdash; right to left)
+push 10             ; First argument (pushed second &mdash; ends up on top)
+call my_function
+add esp, 8          ; Caller cleans up 2 arguments (cdecl)
+
+; Inside my_function after prologue:
+mov eax, [ebp+8]    ; First argument = 10
+mov ebx, [ebp+12]   ; Second argument = 42</pre>
+                <p>Why <code>+8</code> and not <code>+0</code>? Because <code>[ebp+0]</code> is the saved old EBP, and <code>[ebp+4]</code> is the return address pushed by CALL. Arguments start at <code>[ebp+8]</code>, then <code>[ebp+12]</code>, <code>[ebp+16]</code>, and so on.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Global Variables</h3>
+                <p>Global variables have fixed addresses that don't change throughout the program. Every function that uses the global accesses the exact same address.</p>
+                <pre class="code-block">mov eax, [0x00405000]   ; Read the global
+add eax, 1
+mov [0x00405000], eax   ; Write it back</pre>
+                <p>The giveaway is the <strong>literal hex address with no register base</strong>. Stack variables use EBP or ESP as a base; globals use hardcoded addresses. In IDA, these addresses are often given readable names like <code>dword_405000</code> or a user-defined name.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Constants</h3>
+                <p>Constants appear as immediate values baked directly into the instruction. The compiler replaced the variable name with the actual number at compile time.</p>
+                <pre class="code-block">mov ecx, 100        ; The 100 is a constant &mdash; hardcoded in the instruction
+cmp eax, 0          ; The 0 is a constant</pre>
+                <p>String constants are stored at fixed addresses in the program's read-only data section. In IDA, you'll see something like <code>push offset aHelloWorld</code> where <code>aHelloWorld</code> is IDA's auto-generated name for the string's address.</p>
+                <div class="important-note">Constants are not variables in the traditional sense &mdash; they can't be changed at runtime. They're embedded in the machine code itself. However, knowing that a value is a constant (as opposed to something computed at runtime) helps you understand what the code is doing.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Identifying Variables &mdash; A Decision Tree</h3>
+                <p>When you see a memory access or value in assembly, ask these questions in order:</p>
+                <pre class="code-block">Is it a register offset like [ebp-N] or [esp+N]?
+  Negative from EBP?           --&gt; Local variable
+  [ebp+8] or higher?           --&gt; Function argument
+  [ebp+0]?                     --&gt; Saved EBP (not a variable)
+  [ebp+4]?                     --&gt; Return address (not a variable)
+
+Is it a fixed address like [0x00405000]?
+                               --&gt; Global variable
+
+Is it an immediate number in the instruction?
+                               --&gt; Constant</pre>
+                <p>This covers the vast majority of cases you'll encounter. ESP-relative addressing (<code>[esp+N]</code>) follows the same logic but the offsets shift as the stack changes &mdash; EBP-relative addressing is much easier to read, which is why compilers use frame pointers.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Identify Each Variable Type</h3>
+                <p>For each operand marked with <code>???</code>, identify whether it's a local variable, function argument, global variable, or constant:</p>
+                <pre class="code-block">mov eax, [0x004050A0]     ; ???
+add eax, [ebp+8]          ; ???
+sub eax, 3                ; ???
+mov [ebp-4], eax          ; ???</pre>
+                <p><strong>Answers:</strong></p>
+                <ul>
+                    <li><code>[0x004050A0]</code> &mdash; <strong>Global variable</strong> (fixed hex address, no register base)</li>
+                    <li><code>[ebp+8]</code> &mdash; <strong>Function argument</strong> (positive offset from EBP, past the saved EBP and return address)</li>
+                    <li><code>3</code> &mdash; <strong>Constant</strong> (immediate value embedded in the instruction)</li>
+                    <li><code>[ebp-4]</code> &mdash; <strong>Local variable</strong> (negative offset from EBP, on the stack)</li>
+                </ul>
+                <p><strong>In plain English:</strong> This code reads a global, adds the first function argument to it, subtracts 3, and stores the result in a local variable.</p>
             </div>
         </section>
 

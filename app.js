@@ -155,6 +155,15 @@ lea ebx, [ecx+edx*4]     ; EBX = 10+12 = 22
 lea esi, [ecx+edx*4+5]   ; ESI = 10+12+5 = 27
 lea edi, [eax+eax*4]     ; EDI = 13*5 = 65 (multiply by 5!)`,
 
+    'movsx-movzx': `; MOVSX vs MOVZX - Sign vs Zero Extension
+; Same 8-bit value (0xFB) extended two different ways
+mov al, 0xFB          ; AL = 251 unsigned, -5 signed
+movsx eax, al         ; Sign-extend: EAX = 0xFFFFFFFB (-5)
+; Now try zero extension on the same value
+mov bl, 0xFB          ; BL = same bits
+movzx ebx, bl         ; Zero-extend: EBX = 0x000000FB (251)
+; Same bits, completely different 32-bit results!`,
+
     // --- Arithmetic ---
     'add-sub': `; ADD and SUB
 mov eax, 30
@@ -590,6 +599,8 @@ function describeInstruction(line, result) {
 
     const descs = {
         mov: `<strong>MOV</strong>: Copy value into destination. <code>${line}</code>`,
+        movsx: `<strong>MOVSX</strong>: Move with Sign Extension &mdash; copies a smaller value into a larger register, filling upper bits with the sign bit. For signed values. <code>${line}</code>`,
+        movzx: `<strong>MOVZX</strong>: Move with Zero Extension &mdash; copies a smaller value into a larger register, filling upper bits with zeros. For unsigned values. <code>${line}</code>`,
         add: `<strong>ADD</strong>: Add source to destination. <code>${line}</code>`,
         sub: `<strong>SUB</strong>: Subtract source from destination. <code>${line}</code>`,
         inc: `<strong>INC</strong>: Add 1 to register. <code>${line}</code>`,
@@ -854,6 +865,8 @@ const REF_DATA = [
         { name: 'LEA dest, [expr]', desc: 'Compute address expression, store result in dest. No memory access.', ex: 'lea esi, [ecx+edi] → esi = ecx + edi' },
         { name: 'PUSH src', desc: 'ESP -= 4, then store src at [ESP].', ex: 'push eax → stack grows' },
         { name: 'POP dest', desc: 'Load [ESP] into dest, then ESP += 4.', ex: 'pop ebp → ebp = top of stack' },
+        { name: 'MOVSX dest, src', desc: 'Move with Sign Extension. Copies a smaller value into a larger register, filling upper bits with the sign bit (for signed values).', ex: 'movsx eax, al → sign-extend AL into EAX' },
+        { name: 'MOVZX dest, src', desc: 'Move with Zero Extension. Copies a smaller value into a larger register, filling upper bits with zeros (for unsigned values).', ex: 'movzx eax, al → zero-extend AL into EAX' },
     ]},
     { cat: 'Arithmetic', entries: [
         { name: 'ADD dest, src', desc: 'dest = dest + src. Sets flags.', ex: 'add eax, 5 → eax += 5' },

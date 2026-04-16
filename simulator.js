@@ -320,7 +320,7 @@ class AsmSimulator {
 
         // Operand count validation
         const needsOps = {
-            mov:2, add:2, sub:2, and:2, or:2, xor:2, cmp:2, test:2, shl:2, sal:2, shr:2, sar:2,
+            mov:2, movsx:2, movzx:2, add:2, sub:2, and:2, or:2, xor:2, cmp:2, test:2, shl:2, sal:2, shr:2, sar:2,
             inc:1, dec:1, neg:1, not:1, mul:1, div:1, imul:1, idiv:1,
             xchg:2, lea:2, push:1, pop:1,
             nop:0, cdq:0, ret:0,
@@ -331,13 +331,13 @@ class AsmSimulator {
         }
 
         // Dest validation for instructions that write to a register or memory
-        const writesDest = ['mov','add','sub','inc','dec','neg','not','and','or','xor','shl','sal','shr','sar','xchg','lea','pop'];
+        const writesDest = ['mov','movsx','movzx','add','sub','inc','dec','neg','not','and','or','xor','shl','sal','shr','sar','xchg','lea','pop'];
         if (writesDest.includes(op) && operands[0] && !this.isValidDest(operands[0])) {
             return { description: `"${operands[0]}" is not a valid register or memory operand. Valid registers: EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP, AL-DL, AH-DH, AX-DX. Memory: [ebp-4], dword ptr [eax]`, changedRegs: [], error: true };
         }
 
         // Source validation for 2-operand instructions
-        const needs2 = ['mov','add','sub','and','or','xor','cmp','test','shl','shr','sar','sal','xchg'];
+        const needs2 = ['mov','movsx','movzx','add','sub','and','or','xor','cmp','test','shl','shr','sar','sal','xchg'];
         if (needs2.includes(op) && operands[1] !== undefined) {
             const srcVal = this.readOperand(operands[1]);
             if (srcVal === null && op !== 'lea') {
@@ -640,6 +640,29 @@ class AsmSimulator {
                     else desc = 'LEA: cannot parse';
                     break;
                 }
+                case 'movsx': {
+                    const dest = operands[0], src = operands[1];
+                    const srcBits = this.isReg(src) ? this.regBits(src) : (src.match(/byte/i) ? 8 : src.match(/word/i) ? 16 : 8);
+                    const dstBits = this.isReg(dest) ? this.regBits(dest) : 32;
+                    const srcVal = this.readOperand(src);
+                    const signed = this.toSigned(srcVal & ((1 << srcBits) - 1), srcBits);
+                    const result = this.fromSigned(signed, dstBits);
+                    this.writeOperand(dest, result);
+                    desc = `sign-extend: ${dest} = ${src} sign-extended from ${srcBits}-bit to ${dstBits}-bit. ` +
+                           `Value ${srcVal & ((1 << srcBits) - 1)} (${srcBits}-bit) = ${signed} (signed) → ${dest} = ${result >>> 0} (${this.toSigned(result, dstBits)} signed)`;
+                    break;
+                }
+                case 'movzx': {
+                    const dest = operands[0], src = operands[1];
+                    const srcBits = this.isReg(src) ? this.regBits(src) : (src.match(/byte/i) ? 8 : src.match(/word/i) ? 16 : 8);
+                    const dstBits = this.isReg(dest) ? this.regBits(dest) : 32;
+                    const srcVal = this.readOperand(src);
+                    const masked = srcVal & ((1 << srcBits) - 1);
+                    this.writeOperand(dest, masked);
+                    desc = `zero-extend: ${dest} = ${src} zero-extended from ${srcBits}-bit to ${dstBits}-bit. ` +
+                           `Value ${masked} (${srcBits}-bit) → ${dest} = ${masked} (upper bits filled with zeros)`;
+                    break;
+                }
                 // === Stack operations ===
                 case 'push': {
                     const val = this.readOperand(operands[0]);
@@ -831,7 +854,7 @@ class AsmSimulator {
         };
 
         const valid = new Set([
-            'mov','add','sub','inc','dec','neg','xchg',
+            'mov','movsx','movzx','add','sub','inc','dec','neg','xchg',
             'and','or','xor','not','test','cmp',
             'shl','sal','shr','sar',
             'mul','imul','div','idiv','cdq',
