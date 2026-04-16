@@ -3398,9 +3398,13 @@ FSTP dword ptr [ebp-10h]</pre>
         <!-- Instruction Reference -->
         <section id="reference" class="section">
             <h1>x86 Instruction Reference</h1>
-            <p>Quick lookup for all supported x86 instructions.</p>
+            <p>Quick lookup for all supported x86 instructions. Search by name, description, or flag.</p>
+            <div class="concept-box" style="margin-bottom:1rem">
+                <h3>Operand Notation</h3>
+                <p style="margin:0;font-size:0.85rem"><strong>dest</strong> = destination (register or memory, where the result is stored). <strong>src</strong> = source (register, memory, or immediate value). <strong>imm</strong> = immediate (a constant number baked into the instruction). <strong>count</strong> = shift/rotate amount (immediate or CL register).</p>
+            </div>
             <div class="ref-search-bar">
-                <input type="text" id="ref-search" placeholder="Search instructions... (e.g. mov, div, jbe)">
+                <input type="text" id="ref-search" placeholder="Search instructions... (e.g. mov, div, jbe, flags, unsigned)">
             </div>
             <div id="ref-content">
                 <!-- Populated by JS for searchability -->
@@ -3410,20 +3414,20 @@ FSTP dword ptr [ebp-10h]</pre>
         <!-- Number Converter -->
         <section id="number-converter" class="section">
             <h1>Number Converter</h1>
-            <p>Convert between decimal, hexadecimal, and binary. Essential for assembly work.</p>
+            <p>Convert between decimal, hexadecimal, and binary. Type in any field and the others update instantly. Accepts 0x prefix for hex and 0b prefix for binary in the signed decimal field.</p>
             <div class="converter-box">
                 <div class="converter-controls">
                     <label>Bit width:
                         <select id="conv-bits">
-                            <option value="8">8-bit</option>
-                            <option value="16">16-bit</option>
-                            <option value="32" selected>32-bit</option>
+                            <option value="8">8-bit (AL, BL, etc.)</option>
+                            <option value="16">16-bit (AX, BX, etc.)</option>
+                            <option value="32" selected>32-bit (EAX, EBX, etc.)</option>
                         </select>
                     </label>
                 </div>
                 <div class="converter-row">
                     <label>Signed Decimal:</label>
-                    <input type="text" id="conv-dec" placeholder="e.g. -5 or 255">
+                    <input type="text" id="conv-dec" placeholder="e.g. -5, 255, 0xFF, or 0b1010">
                 </div>
                 <div class="converter-row">
                     <label>Unsigned Decimal:</label>
@@ -3438,23 +3442,35 @@ FSTP dword ptr [ebp-10h]</pre>
                     <input type="text" id="conv-bin" placeholder="e.g. 11111111">
                 </div>
             </div>
-            <div class="concept-box" style="margin-top:1.5rem">
-                <h3>Key Values to Know</h3>
-                <table class="ref-table">
-                    <tr><th>Unsigned</th><th>Signed (8-bit)</th><th>Hex</th><th>Binary</th></tr>
-                    <tr><td>0</td><td>0</td><td>0x00</td><td>00000000</td></tr>
-                    <tr><td>1</td><td>1</td><td>0x01</td><td>00000001</td></tr>
-                    <tr><td>127</td><td>127</td><td>0x7F</td><td>01111111</td></tr>
-                    <tr><td>128</td><td>-128</td><td>0x80</td><td>10000000</td></tr>
-                    <tr><td>255</td><td>-1</td><td>0xFF</td><td>11111111</td></tr>
-                </table>
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>Why Two Decimals?</h3>
+                <p style="font-size:0.85rem;margin:0">The same bits can mean different things depending on whether you treat them as signed or unsigned. For example, the 8-bit value <code>0xFF</code> is <strong>255</strong> as unsigned, but <strong>-1</strong> as signed (two's complement). The CPU doesn't know which you mean &mdash; it depends on which instructions you use (<code>JA</code> = unsigned, <code>JG</code> = signed).</p>
+            </div>
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>Boundary Values</h3>
+                <p style="font-size:0.85rem;margin-bottom:0.5rem">These are the values where signed and unsigned interpretations diverge. They change with bit width:</p>
+                <div id="conv-boundary-table">
+                    <!-- Populated by JS based on selected bit width -->
+                </div>
             </div>
         </section>
 
         <!-- Bitwise Calculator -->
         <section id="bitwise-calc" class="section">
             <h1>Bitwise Calculator</h1>
-            <p>Visualize AND, OR, XOR, and NOT operations bit by bit.</p>
+            <p>Visualize AND, OR, XOR, and NOT operations bit by bit. Each operation works on individual bits independently.</p>
+
+            <div class="concept-box">
+                <h3>Truth Tables</h3>
+                <p style="font-size:0.85rem;margin-bottom:0.5rem">Each operation compares bits in the same position. Here is what each one does:</p>
+                <div style="display:flex;gap:1.2rem;flex-wrap:wrap;font-size:0.82rem;font-family:monospace">
+                    <div><strong style="color:var(--accent)">AND</strong> (both must be 1)<br>0 AND 0 = 0<br>0 AND 1 = 0<br>1 AND 0 = 0<br>1 AND 1 = <span style="color:var(--green)">1</span></div>
+                    <div><strong style="color:var(--accent)">OR</strong> (either can be 1)<br>0 OR 0 = 0<br>0 OR 1 = <span style="color:var(--green)">1</span><br>1 OR 0 = <span style="color:var(--green)">1</span><br>1 OR 1 = <span style="color:var(--green)">1</span></div>
+                    <div><strong style="color:var(--accent)">XOR</strong> (must be different)<br>0 XOR 0 = 0<br>0 XOR 1 = <span style="color:var(--green)">1</span><br>1 XOR 0 = <span style="color:var(--green)">1</span><br>1 XOR 1 = 0</div>
+                    <div><strong style="color:var(--accent)">NOT</strong> (flip the bit)<br>NOT 0 = <span style="color:var(--green)">1</span><br>NOT 1 = 0</div>
+                </div>
+            </div>
+
             <div class="bitcalc-box">
                 <div class="bitcalc-row">
                     <label>Value A:</label>
@@ -3477,6 +3493,18 @@ FSTP dword ptr [ebp-10h]</pre>
                 <div class="bitcalc-results" id="bitcalc-results">
                     <!-- Filled by JS -->
                 </div>
+            </div>
+
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>Common Uses in Assembly</h3>
+                <table class="ref-table" style="font-size:0.82rem">
+                    <tr><th>Pattern</th><th>What It Does</th><th>Example</th></tr>
+                    <tr><td><code>AND value, 0xFF</code></td><td>Isolate the low byte (mask off upper bits)</td><td>0x12345678 AND 0xFF = 0x78</td></tr>
+                    <tr><td><code>OR value, 0x80</code></td><td>Set bit 7 (force a specific bit to 1)</td><td>0x00 OR 0x80 = 0x80</td></tr>
+                    <tr><td><code>XOR reg, reg</code></td><td>Zero the register (fastest way to set to 0)</td><td>xor eax, eax = 0</td></tr>
+                    <tr><td><code>TEST reg, reg</code></td><td>Check if register is zero (AND without storing)</td><td>test eax, eax; jz ... (jump if zero)</td></tr>
+                    <tr><td><code>AND value, 1</code></td><td>Check if a number is odd (test bit 0)</td><td>7 AND 1 = 1 (odd), 8 AND 1 = 0 (even)</td></tr>
+                </table>
             </div>
         </section>
 

@@ -745,6 +745,7 @@ function initNumberConverter() {
     const hexEl = document.getElementById('conv-hex');
     const binEl = document.getElementById('conv-bin');
     const bitsEl = document.getElementById('conv-bits');
+    const boundaryDiv = document.getElementById('conv-boundary-table');
 
     function getBits() { return parseInt(bitsEl.value); }
     function mask() { return getBits() === 8 ? 0xFF : getBits() === 16 ? 0xFFFF : 0xFFFFFFFF; }
@@ -752,9 +753,17 @@ function initNumberConverter() {
     function toUnsigned(n, bits) { return n < 0 ? (n + 2 ** bits) >>> 0 : (n & mask()) >>> 0; }
     function toSignedConv(n, bits) { const s = 2 ** (bits - 1); return n >= s ? n - 2 ** bits : n; }
 
+    // Parse flexible input: supports plain decimal, 0x hex, 0b binary
+    function parseFlexible(val) {
+        val = val.trim();
+        if (/^-?0x/i.test(val)) return parseInt(val.replace(/^-?0x/i, (m) => m.startsWith('-') ? '-' : ''), 16) * (val.startsWith('-') ? -1 : 1);
+        if (/^-?0b/i.test(val)) return parseInt(val.replace(/^-?0b/i, ''), 2) * (val.startsWith('-') ? -1 : 1);
+        return parseInt(val);
+    }
+
     function fromDec(val) {
         const bits = getBits();
-        let n = parseInt(val);
+        let n = parseFlexible(val);
         if (isNaN(n)) return;
         n = toUnsigned(n, bits);
         udecEl.value = n;
@@ -774,7 +783,7 @@ function initNumberConverter() {
 
     function fromHex(val) {
         const bits = getBits();
-        let n = parseInt(val, 16);
+        let n = parseInt(val.replace(/^0x/i, ''), 16);
         if (isNaN(n)) return;
         n = (n & mask()) >>> 0;
         decEl.value = toSignedConv(n, bits);
@@ -784,7 +793,7 @@ function initNumberConverter() {
 
     function fromBin(val) {
         const bits = getBits();
-        let n = parseInt(val, 2);
+        let n = parseInt(val.replace(/^0b/i, ''), 2);
         if (isNaN(n)) return;
         n = (n & mask()) >>> 0;
         decEl.value = toSignedConv(n, bits);
@@ -792,11 +801,35 @@ function initNumberConverter() {
         hexEl.value = n.toString(16).toUpperCase().padStart(bits / 4, '0');
     }
 
+    function updateBoundaryTable() {
+        const bits = getBits();
+        const maxU = (2 ** bits) - 1;
+        const maxS = (2 ** (bits - 1)) - 1;
+        const minS = -(2 ** (bits - 1));
+        const half = 2 ** (bits - 1);
+        const hexW = bits / 4;
+        const rows = [
+            [0, 0, '0x' + '00'.padStart(hexW, '0'), 'All zeros'],
+            [1, 1, '0x' + '01'.padStart(hexW, '0'), ''],
+            [maxS, maxS, '0x' + maxS.toString(16).toUpperCase().padStart(hexW, '0'), 'Max positive signed'],
+            [half, minS, '0x' + half.toString(16).toUpperCase().padStart(hexW, '0'), 'Sign bit flips here!'],
+            [maxU, -1, '0x' + 'FF'.padStart(hexW, 'F'), 'All ones = -1 signed'],
+        ];
+        boundaryDiv.innerHTML = `<table class="ref-table">
+            <tr><th>Unsigned</th><th>Signed (${bits}-bit)</th><th>Hex</th><th>Note</th></tr>
+            ${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td><code>${r[2]}</code></td><td>${r[3]}</td></tr>`).join('')}
+        </table>`;
+    }
+
     decEl.addEventListener('input', () => fromDec(decEl.value));
     udecEl.addEventListener('input', () => fromUdec(udecEl.value));
     hexEl.addEventListener('input', () => fromHex(hexEl.value));
     binEl.addEventListener('input', () => fromBin(binEl.value));
-    bitsEl.addEventListener('change', () => { if (decEl.value) fromDec(decEl.value); });
+    bitsEl.addEventListener('change', () => {
+        updateBoundaryTable();
+        if (decEl.value) fromDec(decEl.value);
+    });
+    updateBoundaryTable();
 }
 
 // ============================================================
@@ -862,56 +895,59 @@ function initBitwiseCalc() {
 
 const REF_DATA = [
     { cat: 'Data Movement', entries: [
-        { name: 'MOV dest, src', desc: 'Copy value from src into dest. Source unchanged.', ex: 'mov eax, 10 → eax = 10' },
-        { name: 'XCHG a, b', desc: 'Swap values of a and b.', ex: 'xchg eax, ebx → swapped' },
-        { name: 'LEA dest, [expr]', desc: 'Compute address expression, store result in dest. No memory access.', ex: 'lea esi, [ecx+edi] → esi = ecx + edi' },
-        { name: 'PUSH src', desc: 'ESP -= 4, then store src at [ESP].', ex: 'push eax → stack grows' },
-        { name: 'POP dest', desc: 'Load [ESP] into dest, then ESP += 4.', ex: 'pop ebp → ebp = top of stack' },
-        { name: 'MOVSX dest, src', desc: 'Move with Sign Extension. Copies a smaller value into a larger register, filling upper bits with the sign bit (for signed values).', ex: 'movsx eax, al → sign-extend AL into EAX' },
-        { name: 'MOVZX dest, src', desc: 'Move with Zero Extension. Copies a smaller value into a larger register, filling upper bits with zeros (for unsigned values).', ex: 'movzx eax, al → zero-extend AL into EAX' },
+        { name: 'MOV dest, src', desc: 'Copy value from src into dest. Source unchanged. Does NOT set flags. Most common instruction in x86.', ex: 'mov eax, 10 → eax = 10' },
+        { name: 'XCHG a, b', desc: 'Swap values of a and b. Does NOT set flags.', ex: 'xchg eax, ebx → values swapped' },
+        { name: 'LEA dest, [expr]', desc: 'Compute address expression, store result in dest. No memory access, does NOT set flags. Compilers use it for fast math: lea eax,[eax+eax*4] = eax*5.', ex: 'lea esi, [ecx+edi] → esi = ecx + edi' },
+        { name: 'PUSH src', desc: 'ESP -= 4, then store src at [ESP]. Does NOT set flags. Used to pass arguments and save registers.', ex: 'push eax → stack grows' },
+        { name: 'POP dest', desc: 'Load [ESP] into dest, then ESP += 4. Does NOT set flags. Used to restore registers.', ex: 'pop ebp → ebp = top of stack' },
+        { name: 'MOVSX dest, src', desc: 'Move with Sign Extension. Copies a smaller value into a larger register, filling upper bits with the sign bit. Use for signed values. Does NOT set flags.', ex: 'movsx eax, al → sign-extend AL into EAX' },
+        { name: 'MOVZX dest, src', desc: 'Move with Zero Extension. Copies a smaller value into a larger register, filling upper bits with zeros. Use for unsigned values. Does NOT set flags.', ex: 'movzx eax, al → zero-extend AL into EAX' },
     ]},
     { cat: 'Arithmetic', entries: [
-        { name: 'ADD dest, src', desc: 'dest = dest + src. Sets flags.', ex: 'add eax, 5 → eax += 5' },
-        { name: 'SUB dest, src', desc: 'dest = dest - src. Sets flags.', ex: 'sub eax, ecx → eax -= ecx' },
-        { name: 'INC dest', desc: 'dest = dest + 1.', ex: 'inc eax → eax += 1' },
-        { name: 'DEC dest', desc: 'dest = dest - 1.', ex: 'dec eax → eax -= 1' },
-        { name: 'NEG dest', desc: "Two's complement negate: dest = -dest.", ex: 'neg eax → eax = -eax' },
-        { name: 'MUL src', desc: 'Unsigned: EDX:EAX = EAX * src. Clobbers EDX.', ex: 'mul ecx → EDX:EAX = EAX * ECX' },
-        { name: 'IMUL (1/2/3 operand)', desc: 'Signed multiply. 3-op: dest = src * imm. 2-op: dest *= src. 1-op: EDX:EAX = EAX * src.', ex: 'imul eax, edx, 14 → eax = edx * 14' },
-        { name: 'DIV src', desc: 'Unsigned divide EDX:EAX by src. EAX = quotient, EDX = remainder. Zero EDX first!', ex: 'div ecx → EAX = result, EDX = remainder' },
-        { name: 'IDIV src', desc: 'Signed divide EDX:EAX by src. Use CDQ first to sign-extend.', ex: 'idiv ecx → signed quotient/remainder' },
-        { name: 'CDQ', desc: 'Sign-extend EAX into EDX:EAX. EDX = -1 if EAX negative, else 0.', ex: 'cdq → EDX = sign extension' },
+        { name: 'ADD dest, src', desc: 'dest = dest + src. Sets all flags (ZF, SF, CF, OF). CF=1 if unsigned overflow. OF=1 if signed overflow.', ex: 'add eax, 5 → eax += 5' },
+        { name: 'SUB dest, src', desc: 'dest = dest - src. Sets all flags. CF=1 if unsigned borrow. Used before conditional jumps.', ex: 'sub eax, ecx → eax -= ecx' },
+        { name: 'INC dest', desc: 'dest = dest + 1. Sets ZF, SF, OF but NOT CF. Use for loop counters.', ex: 'inc eax → eax += 1' },
+        { name: 'DEC dest', desc: 'dest = dest - 1. Sets ZF, SF, OF but NOT CF.', ex: 'dec eax → eax -= 1' },
+        { name: 'NEG dest', desc: "Two's complement negate: dest = -dest. Sets all flags. CF=1 unless dest was 0.", ex: 'neg eax → eax = -eax' },
+        { name: 'MUL src', desc: 'Unsigned multiply: EDX:EAX = EAX * src. Always destroys EDX even if upper half is 0. Sets CF and OF if result overflows EAX.', ex: 'mul ecx → EDX:EAX = EAX * ECX' },
+        { name: 'IMUL (1/2/3 operand)', desc: 'Signed multiply. 1-op: EDX:EAX = EAX * src (destroys EDX). 2-op: dest *= src (EDX safe). 3-op: dest = src * imm (EDX safe).', ex: 'imul eax, edx, 14 → eax = edx * 14' },
+        { name: 'DIV src', desc: 'Unsigned divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST zero EDX first (xor edx,edx). Divide by zero crashes.', ex: 'div ecx → EAX = quotient, EDX = remainder' },
+        { name: 'IDIV src', desc: 'Signed divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST use CDQ first. Divide by zero crashes.', ex: 'cdq / idiv ecx → signed quotient + remainder' },
+        { name: 'CDQ', desc: 'Sign-extend EAX into EDX:EAX. If EAX is negative, EDX = 0xFFFFFFFF; if positive, EDX = 0. Does NOT set flags. Always use immediately before IDIV.', ex: 'cdq → EDX = sign extension of EAX' },
     ]},
     { cat: 'Bitwise Logic', entries: [
-        { name: 'AND dest, src', desc: 'Bitwise AND. Result bit is 1 only if both bits are 1.', ex: '1011 AND 1101 = 1001' },
-        { name: 'OR dest, src', desc: 'Bitwise OR. Result bit is 1 if either bit is 1.', ex: '1010 OR 0110 = 1110' },
-        { name: 'XOR dest, src', desc: 'Bitwise XOR. Result bit is 1 if bits differ. XOR reg,reg = 0.', ex: '1101 XOR 1011 = 0110' },
-        { name: 'NOT dest', desc: 'Flip every bit (one\'s complement). 8-bit: NOT x = 255-x.', ex: 'NOT 00000011 = 11111100' },
-        { name: 'TEST a, b', desc: 'Compute a AND b, set flags, discard result. TEST reg,reg checks for zero.', ex: 'test eax, eax → ZF=1 if eax==0' },
+        { name: 'AND dest, src', desc: 'Bitwise AND. Result bit is 1 only if both bits are 1. Sets ZF, SF, clears CF and OF. Use for masking (isolating bits).', ex: 'and eax, 0xFF → keep only low byte' },
+        { name: 'OR dest, src', desc: 'Bitwise OR. Result bit is 1 if either bit is 1. Sets ZF, SF, clears CF and OF. Use for setting bits.', ex: 'or eax, 0x80 → set bit 7' },
+        { name: 'XOR dest, src', desc: 'Bitwise XOR. Result bit is 1 if bits differ. Sets ZF, SF, clears CF and OF. XOR reg,reg is the fastest way to zero a register.', ex: 'xor eax, eax → eax = 0' },
+        { name: 'NOT dest', desc: 'Flip every bit (one\'s complement). Does NOT set any flags. NOT is different from NEG (NEG = NOT + 1).', ex: 'not al → 00000011 becomes 11111100' },
+        { name: 'TEST a, b', desc: 'Compute a AND b, set flags (ZF, SF), discard result. TEST reg,reg sets ZF=1 if the register is zero. Does NOT modify operands.', ex: 'test eax, eax → ZF=1 if eax==0' },
     ]},
-    { cat: 'Shifts', entries: [
-        { name: 'SHL dest, count', desc: 'Shift left. Multiply by 2^count. Zeros fill right.', ex: 'shl eax, 2 → eax *= 4' },
-        { name: 'SHR dest, count', desc: 'Logical shift right. Unsigned divide by 2^count. Zeros fill left.', ex: 'shr eax, 3 → eax /= 8' },
-        { name: 'SAR dest, count', desc: 'Arithmetic shift right. Signed divide by 2^count. Preserves sign bit.', ex: 'sar ecx, 1 → ecx /= 2 (signed)' },
-        { name: 'ROL dest, count', desc: 'Rotate left. Bits shift left; top bit wraps to bottom. Used in cryptography.', ex: 'rol al, 1 → circular shift left' },
-        { name: 'ROR dest, count', desc: 'Rotate right. Bits shift right; bottom bit wraps to top.', ex: 'ror al, 1 → circular shift right' },
+    { cat: 'Shifts & Rotates', entries: [
+        { name: 'SHL dest, count', desc: 'Shift left. Multiply by 2^count. Zeros fill from right. Sets CF to the last bit shifted out. Sets ZF, SF, OF.', ex: 'shl eax, 2 → eax *= 4' },
+        { name: 'SHR dest, count', desc: 'Logical shift right. Unsigned divide by 2^count. Zeros fill from left. Sets CF to last bit shifted out.', ex: 'shr eax, 3 → eax /= 8 (unsigned)' },
+        { name: 'SAR dest, count', desc: 'Arithmetic shift right. Signed divide by 2^count. Sign bit fills from left (preserves sign). Sets CF to last bit shifted out.', ex: 'sar ecx, 1 → ecx /= 2 (signed)' },
+        { name: 'ROL dest, count', desc: 'Rotate left. Bits shift left; top bit wraps to bottom (no bits lost). CF = last bit rotated. Common in crypto/hashing.', ex: 'rol al, 1 → circular shift left' },
+        { name: 'ROR dest, count', desc: 'Rotate right. Bits shift right; bottom bit wraps to top. CF = last bit rotated.', ex: 'ror al, 1 → circular shift right' },
     ]},
-    { cat: 'Branching', entries: [
-        { name: 'CMP a, b', desc: 'Compare: computes a - b, sets flags, discards result.', ex: 'cmp ebx, 20 → flags based on ebx-20' },
-        { name: 'JMP target', desc: 'Unconditional jump. Always taken.', ex: 'jmp label → always jumps' },
-        { name: 'JE / JZ', desc: 'Jump if Equal / Zero. ZF=1.', ex: 'After cmp a,b: jumps if a==b' },
-        { name: 'JNE / JNZ', desc: 'Jump if Not Equal / Not Zero. ZF=0.', ex: 'After cmp a,b: jumps if a!=b' },
-        { name: 'JB / JNAE', desc: 'Jump if Below (unsigned). CF=1.', ex: 'After cmp a,b: jumps if a < b (unsigned)' },
-        { name: 'JBE / JNA', desc: 'Jump if Below or Equal (unsigned). CF=1 or ZF=1.', ex: 'After cmp a,b: jumps if a <= b' },
-        { name: 'JA / JNBE', desc: 'Jump if Above (unsigned). CF=0 and ZF=0.', ex: 'After cmp a,b: jumps if a > b' },
-        { name: 'JAE / JNB', desc: 'Jump if Above or Equal (unsigned). CF=0.', ex: 'After cmp a,b: jumps if a >= b' },
-        { name: 'JL / JNGE', desc: 'Jump if Less (signed). SF!=OF.', ex: 'After cmp a,b: jumps if a < b (signed)' },
-        { name: 'JG / JNLE', desc: 'Jump if Greater (signed). ZF=0 and SF==OF.', ex: 'After cmp a,b: jumps if a > b (signed)' },
+    { cat: 'Compare & Jump', entries: [
+        { name: 'CMP a, b', desc: 'Compare: computes a - b, sets all flags (ZF, SF, CF, OF), discards result. Always used before conditional jumps.', ex: 'cmp eax, 10 → flags set based on eax-10' },
+        { name: 'JMP target', desc: 'Unconditional jump. Always taken. Like "goto" in high-level code.', ex: 'jmp label → always jumps' },
+        { name: 'JE / JZ', desc: 'Jump if Equal / Zero (ZF=1). After CMP a,b: jump if a == b.', ex: 'cmp eax, 5 / je target → jump if eax==5' },
+        { name: 'JNE / JNZ', desc: 'Jump if Not Equal / Not Zero (ZF=0). After CMP a,b: jump if a != b.', ex: 'cmp eax, 5 / jne target → jump if eax!=5' },
+        { name: 'JB / JC', desc: 'Jump if Below / Carry (CF=1). Unsigned comparison. After CMP a,b: jump if a < b.', ex: 'cmp eax, ebx / jb target → unsigned less' },
+        { name: 'JBE / JNA', desc: 'Jump if Below or Equal (CF=1 or ZF=1). Unsigned. After CMP: a <= b.', ex: 'cmp eax, ebx / jbe target → unsigned <='},
+        { name: 'JA / JNBE', desc: 'Jump if Above (CF=0 and ZF=0). Unsigned. After CMP: a > b.', ex: 'cmp eax, ebx / ja target → unsigned greater' },
+        { name: 'JAE / JNB', desc: 'Jump if Above or Equal (CF=0). Unsigned. After CMP: a >= b.', ex: 'cmp eax, ebx / jae target → unsigned >=' },
+        { name: 'JL / JNGE', desc: 'Jump if Less (SF!=OF). Signed comparison. After CMP a,b: jump if a < b (treating both as signed).', ex: 'cmp eax, ebx / jl target → signed less' },
+        { name: 'JLE / JNG', desc: 'Jump if Less or Equal (ZF=1 or SF!=OF). Signed. After CMP: a <= b.', ex: 'cmp eax, ebx / jle target → signed <=' },
+        { name: 'JG / JNLE', desc: 'Jump if Greater (ZF=0 and SF==OF). Signed. After CMP: a > b.', ex: 'cmp eax, ebx / jg target → signed greater' },
+        { name: 'JGE / JNL', desc: 'Jump if Greater or Equal (SF==OF). Signed. After CMP: a >= b.', ex: 'cmp eax, ebx / jge target → signed >=' },
     ]},
     { cat: 'Stack & Control', entries: [
-        { name: 'CALL target', desc: 'Push return address, jump to target.', ex: 'call func → push next_addr; jmp func' },
-        { name: 'RET', desc: 'Pop return address, jump to it.', ex: 'ret → pop addr; jmp addr' },
-        { name: 'NOP', desc: 'No operation. Does nothing.', ex: 'nop → nothing happens' },
+        { name: 'CALL target', desc: 'Push return address (address of next instruction) onto stack, then jump to target. ESP decreases by 4. Does NOT set flags.', ex: 'call func → push ret_addr; jmp func' },
+        { name: 'RET / RETN', desc: 'Pop return address from stack, jump to it. RET N also adds N to ESP (callee cleanup, used by stdcall). Does NOT set flags.', ex: 'ret → pop addr; jmp addr' },
+        { name: 'LEAVE', desc: 'Shorthand for: mov esp, ebp; pop ebp. Restores the stack frame. Used in function epilogues. Does NOT set flags.', ex: 'leave → restore frame; equivalent to mov esp,ebp / pop ebp' },
+        { name: 'NOP', desc: 'No operation. Does absolutely nothing. Opcode 0x90. Sometimes used as padding; INT 3 (opcode 0xCC) is used for breakpoints.', ex: 'nop → nothing happens' },
     ]},
 ];
 
