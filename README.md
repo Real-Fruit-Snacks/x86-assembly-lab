@@ -17,8 +17,9 @@
 
 A complete browser-based environment for learning x86 assembly from scratch: step-through simulator, visual
 stack playground with nested frame tracking, register quiz game, 23 tutorial sections covering fundamentals
-through advanced topics (pointers, calling conventions, structs, floating point, and more), and a full suite
-of reference tools. No backend, no build step, no dependencies.
+through advanced topics (pointers, calling conventions, structs, floating point, and more), and 7 interactive
+tools (instruction reference, number converter, bitwise calculator, endianness guide, ASCII table, flags
+calculator, address calculator). No backend, no build step, no dependencies.
 
 </div>
 
@@ -169,11 +170,16 @@ Advanced:
 
 ### Tools
 
+Seven interactive tools you can use while working on problems:
+
 ```
-Instruction Reference  Searchable lookup for every instruction
-Number Converter       Decimal ↔ Hex ↔ Binary with signed/unsigned (8/16/32-bit)
-Bitwise Calculator     Visualize AND, OR, XOR, NOT bit by bit with colored output
+Instruction Reference  Searchable lookup with flag behavior, operand notation, examples
+Number Converter       Decimal ↔ Hex ↔ Binary, signed/unsigned, dynamic boundary table
+Bitwise Calculator     AND/OR/XOR/NOT with truth tables, color-coded bits, common uses
 Endianness Guide       Interactive byte-order explorer with step-by-step walkthrough
+ASCII Table            Clickable 128-character grid, bidirectional lookup (char/dec/hex)
+Flags Calculator       Enter an operation + values, see all flags + which jumps fire
+Address Calculator     Effective address math + stack frame offset calculator from EBP
 ```
 
 ### UI Polish
@@ -191,7 +197,7 @@ Endianness Guide       Interactive byte-order explorer with step-by-step walkthr
 
 ```
 Assembly/
-├── index.html          # Single-page app with 31 sections
+├── index.html          # Single-page app with 34 sections
 ├── style.css           # Catppuccin Mocha theme with custom scrollbars
 ├── simulator.js        # x86 engine: registers, flags, memory, stack, branches
 ├── app.js              # UI: sandbox, playground, quiz, mini-sims, tools
