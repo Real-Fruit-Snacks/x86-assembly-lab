@@ -51,13 +51,13 @@ npx serve . -l 3456
 
 ### Sandbox Simulator
 
-Paste any x86 assembly and step through it. Full support for labels, branches, loops, function calls, memory operations, and IDA-style notation. Registers, flags, and memory update in real time with DEC/HEX/BIN display modes. 23 built-in examples organized by category with teaching comments.
+Paste any x86 assembly and step through it. Full support for labels, branches, loops, function calls, memory operations, and IDA-style notation. Registers, flags, and memory update in real time with DEC/HEX/BIN display modes. 24 built-in examples organized by category with teaching comments.
 
 ```
 Supported instructions:
-  MOV, ADD, SUB, INC, DEC, NEG, XCHG, LEA
+  MOV, MOVSX, MOVZX, ADD, SUB, INC, DEC, NEG, XCHG, LEA
   AND, OR, XOR, NOT, TEST, CMP
-  SHL, SHR, SAR, MUL, IMUL, DIV, IDIV, CDQ
+  SHL, SHR, SAR, ROL, ROR, MUL, IMUL, DIV, IDIV, CDQ
   PUSH, POP, CALL, RET, LEAVE, NOP
   JMP, JE, JNE, JB, JBE, JA, JAE, JL, JLE, JG, JGE
   (+ all aliases: JZ, JNZ, JNA, JNBE, SAL, RETN, etc.)
@@ -129,7 +129,7 @@ Missing operands and invalid registers produce clear error messages with usage e
 
 ### Tutorials
 
-Thirteen learning sections with 21 interactive mini-simulators, before/after register snapshots, step-by-step walkthroughs, practice challenges, and plain-English reference tables. All technical jargon (cdecl, IDA Pro, DWORD, etc.) is defined inline on first use.
+Twenty-three learning sections with 23+ interactive mini-simulators, before/after register snapshots, step-by-step walkthroughs, practice challenges, and plain-English reference tables. All technical jargon (cdecl, IDA Pro, DWORD, etc.) is defined inline on first use.
 
 ```
 Fundamentals:
@@ -152,6 +152,18 @@ Instructions:
 Analysis:
   - Functional Analysis How to read a function and describe it as f(a,b) = ...
   - Control Structures  If/else, loops, switch statements, jump tables
+
+Advanced:
+  - Extension Instr.    MOVSX/MOVZX sign vs zero extension, CBW/CWD/CDQ cheat sheet
+  - Pointers            Read/write/double-deref patterns, LEA vs MOV, pass by ref
+  - Variables & Scope   Local/argument/global/constant identification decision tree
+  - Calling Conventions cdecl/stdcall/fastcall/thiscall, volatile vs non-volatile regs
+  - Arrays              Index-based vs pointer-advancing patterns, string instructions
+  - Strings             ASCII/Unicode encoding, null-terminated patterns, hex decoding
+  - Structures          Struct field access patterns, heterogeneous offsets, stack structs
+  - Dynamic Memory      Stack vs heap, malloc/free patterns, Windows HeapAlloc API
+  - Floating Point      FPU stack (ST0-ST7), FLD/FST/FADD, IEEE 754 basics
+  - Misc Instructions   ROL/ROR rotation, INT 3 anti-debug, PUSHA/POPA packers
 ```
 
 ### Tools
@@ -178,7 +190,7 @@ Endianness Guide       Interactive byte-order explorer with worksheet walkthroug
 
 ```
 Assembly/
-├── index.html          # Single-page app with 21 sections
+├── index.html          # Single-page app with 31 sections
 ├── style.css           # Catppuccin Mocha theme with custom scrollbars
 ├── simulator.js        # x86 engine: registers, flags, memory, stack, branches
 ├── app.js              # UI: sandbox, playground, quiz, mini-sims, tools
@@ -223,12 +235,12 @@ Automated test suite covering correctness, fuzz robustness, and every scenario/e
 
 | Scenario type | Count | Verified |
 |--------------|------:|---------:|
-| Sandbox examples | 23 | 23 |
+| Sandbox examples | 24 | 24 |
 | Explore mode scenarios | 6 | 6 |
 | Step-Through walkthroughs | 5 | 5 |
 | Error scenarios | 6 | 6 |
 | Puzzle generations | 30 | 30 |
-| Mini-simulators across tutorials | 21 | 21 |
+| Mini-simulators across tutorials | 24 | 24 |
 
 Every example, scenario, walkthrough, and mini-simulator has been verified to produce the expected register/stack state.
 
