@@ -68,7 +68,7 @@
             <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('sandbox')">
                     <h3>Sandbox Simulator</h3>
-                    <p>Paste any x86 code and step through it. Full instruction support including branches, memory, stack, and calls. 23 pre-built examples.</p>
+                    <p>Paste any x86 code and step through it. Full instruction support including branches, memory, stack, and calls. 24 pre-built examples.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('stack-playground')">
                     <h3>Stack Playground</h3>
@@ -88,7 +88,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-arithmetic')">
                     <h3>Instructions</h3>
-                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. 21 mini-simulators, before/after register snapshots, and step-by-step walkthroughs.</p>
+                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. 24 mini-simulators, before/after register snapshots, and step-by-step walkthroughs.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
@@ -96,7 +96,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
-                    <p>Extension instructions (MOVSX/MOVZX), pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and more.</p>
+                    <p>10 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and miscellaneous instructions.</p>
                 </div>
             </div>
 
@@ -2309,7 +2309,7 @@ loop_done:</pre>
                     <li>The case number indexes into a jump/address table</li>
                     <li>Each entry in the jump table points to a case handler block</li>
                 </ol>
-                <p>From your worksheet: the input value 0x77 has base subtracted (0x61), giving offset 0x16 = 22 decimal. Looking at index 22 in the byte array gives value 5, meaning it executes case 5 in the jump table.</p>
+                <p>Example: if the input value is 0x77 and the base is subtracted (0x61), the offset is 0x16 = 22 decimal. Looking at index 22 in the byte array gives value 5, meaning it executes case 5 in the jump table.</p>
             </div>
 
             <div class="concept-box">
@@ -2332,7 +2332,7 @@ loop_done:</pre>
                 <ul>
                     <li>Load the <strong>"CMP + conditional jump"</strong> example to see if/else</li>
                     <li>Load the <strong>"Loop (DEC + JNZ)"</strong> example to see a do-while loop</li>
-                    <li>For your worksheet's Control Structures lab, trace which branches are taken by tracking the variable values and flag states at each CMP/TEST</li>
+                    <li>To practice, trace which branches are taken by tracking the variable values and flag states at each CMP/TEST</li>
                 </ul>
             </div>
         </section>
@@ -3398,7 +3398,7 @@ FSTP dword ptr [ebp-10h]</pre>
         <!-- Instruction Reference -->
         <section id="reference" class="section">
             <h1>x86 Instruction Reference</h1>
-            <p>Quick lookup for all instructions used in the lab manual.</p>
+            <p>Quick lookup for all supported x86 instructions.</p>
             <div class="ref-search-bar">
                 <input type="text" id="ref-search" placeholder="Search instructions... (e.g. mov, div, jbe)">
             </div>
@@ -3544,8 +3544,8 @@ FSTP dword ptr [ebp-10h]</pre>
             </div>
 
             <div class="concept-box">
-                <h3>The Worksheet's Endianness Test</h3>
-                <p>Your worksheet has this code that detects endianness. Let's walk through it step by step:</p>
+                <h3>Endianness Detection Example</h3>
+                <p>Here is a common code pattern that detects endianness. Let's walk through it step by step:</p>
                 <pre class="code-block">mov [ebp+var_4], 1              ; Step 1: Store 0x00000001 as a DWORD
 movsx eax, byte ptr [ebp+var_4] ; Step 2: Read just the FIRST byte
 cmp eax, 1                      ; Step 3: Is that first byte 0x01?

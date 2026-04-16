@@ -15,9 +15,10 @@
 
 **Interactive x86 assembly simulator and learning lab**
 
-A complete browser-based environment for learning x86: step-through simulator, visual stack playground with
-nested frame tracking, register quiz game, fundamentals tutorials, and a full suite of reference tools. No
-backend, no build step, no dependencies.
+A complete browser-based environment for learning x86 assembly from scratch: step-through simulator, visual
+stack playground with nested frame tracking, register quiz game, 23 tutorial sections covering fundamentals
+through advanced topics (pointers, calling conventions, structs, floating point, and more), and a full suite
+of reference tools. No backend, no build step, no dependencies.
 
 </div>
 
@@ -172,7 +173,7 @@ Advanced:
 Instruction Reference  Searchable lookup for every instruction
 Number Converter       Decimal ↔ Hex ↔ Binary with signed/unsigned (8/16/32-bit)
 Bitwise Calculator     Visualize AND, OR, XOR, NOT bit by bit with colored output
-Endianness Guide       Interactive byte-order explorer with worksheet walkthrough
+Endianness Guide       Interactive byte-order explorer with step-by-step walkthrough
 ```
 
 ### UI Polish
@@ -227,7 +228,7 @@ Automated test suite covering correctness, fuzz robustness, and every scenario/e
 | All 21 nav links + all 23 sandbox examples + every instruction type | 73 |
 | Register Quiz: 15 rounds × 3 difficulties + wrong answers + hex input | 53 |
 | Stack Playground all 4 modes: Explore, Step-Through, Puzzle, Errors | 96 |
-| Deep nesting (3+ levels), full unwind, worksheet-level execution | 16 |
+| Deep nesting (3+ levels), full unwind, complex execution scenarios | 16 |
 | Number Converter (8/16/32-bit), Bitwise Calc, Endianness, Reference search | 75 |
 | Fuzz: garbage input, rapid clicks, empty state, edge cases | 194 |
 

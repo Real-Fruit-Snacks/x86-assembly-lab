@@ -10,7 +10,7 @@ assignees: ''
 Describe the feature clearly.
 
 **Why is this useful for learning assembly?**
-How would this help students working through assembly exercises?
+How would this help someone learning x86 assembly?
 
 **Example usage (if applicable):**
 ```

@@ -25,7 +25,7 @@ All notable changes to this project will be documented in this file.
 - Searchable Instruction Reference with all supported instructions
 - Number Converter tool (decimal/hex/binary, signed/unsigned, 8/16/32-bit)
 - Bitwise Calculator with color-coded bit visualization
-- Endianness Guide with interactive byte-order explorer and worksheet walkthrough
+- Endianness Guide with interactive byte-order explorer and step-by-step walkthrough
 - Complete sub-register map for all 8 general-purpose registers
 - Dark theme UI with responsive sidebar navigation
 - 104 automated tests covering all instructions, edge cases, and tools
