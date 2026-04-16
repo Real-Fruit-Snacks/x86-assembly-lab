@@ -37,6 +37,9 @@
             <li><a href="#learn-extensions" class="nav-link" data-section="learn-extensions">Extension Instructions</a></li>
             <li><a href="#learn-pointers" class="nav-link" data-section="learn-pointers">Pointers</a></li>
             <li><a href="#learn-variables" class="nav-link" data-section="learn-variables">Variables &amp; Scope</a></li>
+            <li><a href="#learn-conventions" class="nav-link" data-section="learn-conventions">Calling Conventions</a></li>
+            <li><a href="#learn-arrays" class="nav-link" data-section="learn-arrays">Arrays</a></li>
+            <li><a href="#learn-strings" class="nav-link" data-section="learn-strings">Strings</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -2696,6 +2699,376 @@ mov [ebp-4], eax          ; ???</pre>
                     <li><code>[ebp-4]</code> &mdash; <strong>Local variable</strong> (negative offset from EBP, on the stack)</li>
                 </ul>
                 <p><strong>In plain English:</strong> This code reads a global, adds the first function argument to it, subtracts 3, and stores the result in a local variable.</p>
+            </div>
+        </section>
+
+        <!-- Learn: Calling Conventions -->
+        <section id="learn-conventions" class="section">
+            <h1>Calling Conventions</h1>
+            <p>A calling convention is an agreement between the caller and the called function about how arguments are passed, who cleans up the stack, and which registers are safe to use. Different conventions exist for different compilers and platforms.</p>
+
+            <div class="concept-box">
+                <h3>The Four Conventions</h3>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Convention</th>
+                            <th>How Arguments Are Passed</th>
+                            <th>Who Cleans Up Stack</th>
+                            <th>How to Identify</th>
+                            <th>Used By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>cdecl</strong> (C Declaration)</td>
+                            <td>Pushed right-to-left on stack</td>
+                            <td>Caller (<code>ADD ESP, N</code> after CALL)</td>
+                            <td>Simple <code>RET</code> with no operand; caller does <code>ADD ESP, N</code></td>
+                            <td>Default for C/C++ code</td>
+                        </tr>
+                        <tr>
+                            <td><strong>stdcall</strong></td>
+                            <td>Pushed right-to-left on stack</td>
+                            <td>Callee (<code>RET N</code>)</td>
+                            <td><code>RET</code> with a number (e.g., <code>RET 8</code>)</td>
+                            <td>Windows API functions</td>
+                        </tr>
+                        <tr>
+                            <td><strong>fastcall</strong></td>
+                            <td>First 2 args in ECX, EDX; rest on stack</td>
+                            <td>Callee (<code>RET N</code>)</td>
+                            <td>ECX/EDX used before being initialized</td>
+                            <td>Performance-critical code</td>
+                        </tr>
+                        <tr>
+                            <td><strong>thiscall</strong></td>
+                            <td><code>this</code> pointer in ECX; rest on stack</td>
+                            <td>Callee (<code>RET N</code>)</td>
+                            <td>ECX holds object pointer</td>
+                            <td>C++ member functions</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>cdecl vs stdcall Side by Side</h3>
+                <p>The same function call <code>func(10, 20)</code> looks different depending on the convention. The key difference is who removes the arguments from the stack after the call.</p>
+                <p><strong>cdecl (caller cleans up):</strong></p>
+<pre class="code-block">push 20          ; arg2 (pushed right-to-left)
+push 10          ; arg1
+call func
+add esp, 8       ; Caller cleans up (2 args * 4 bytes)</pre>
+                <p><strong>stdcall (callee cleans up):</strong></p>
+<pre class="code-block">push 20          ; arg2 (pushed right-to-left)
+push 10          ; arg1
+call func        ; Function ends with RET 8 (callee cleaned up)
+; No cleanup needed here</pre>
+                <p>In cdecl, you will always see an <code>ADD ESP, N</code> (or equivalent) after the CALL to remove the arguments. In stdcall, the function itself does the cleanup with <code>RET N</code>, so there is no cleanup code at the call site.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Volatile vs Non-Volatile Registers</h3>
+                <p>Volatile registers (EAX, ECX, EDX) can be freely trashed by any function you call &mdash; if you need their values after a CALL, you must save them first. Non-volatile registers (EBX, ESI, EDI, EBP) must be preserved by the called function &mdash; if a function uses them, it must save and restore them (usually with PUSH at the start and POP at the end).</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Register</th>
+                            <th>Volatile?</th>
+                            <th>Plain English</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>EAX</td>
+                            <td>Volatile (caller-save)</td>
+                            <td>May be destroyed by any function call. Also holds the return value.</td>
+                        </tr>
+                        <tr>
+                            <td>ECX</td>
+                            <td>Volatile (caller-save)</td>
+                            <td>May be destroyed by any function call. Also first arg in fastcall.</td>
+                        </tr>
+                        <tr>
+                            <td>EDX</td>
+                            <td>Volatile (caller-save)</td>
+                            <td>May be destroyed by any function call.</td>
+                        </tr>
+                        <tr>
+                            <td>EBX</td>
+                            <td>Non-volatile (callee-save)</td>
+                            <td>Preserved across function calls. If a function uses it, it must save/restore.</td>
+                        </tr>
+                        <tr>
+                            <td>ESI</td>
+                            <td>Non-volatile (callee-save)</td>
+                            <td>Preserved across function calls.</td>
+                        </tr>
+                        <tr>
+                            <td>EDI</td>
+                            <td>Non-volatile (callee-save)</td>
+                            <td>Preserved across function calls.</td>
+                        </tr>
+                        <tr>
+                            <td>EBP</td>
+                            <td>Non-volatile (callee-save)</td>
+                            <td>Preserved across function calls. Used as stack frame base.</td>
+                        </tr>
+                        <tr>
+                            <td>ESP</td>
+                            <td>Special</td>
+                            <td>Always preserved (stack must be balanced).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>x64 Convention</h3>
+                <p>64-bit Windows uses a single convention based on fastcall. The first 4 arguments go in RCX, RDX, R8, and R9. Additional arguments go on the stack. The return value is placed in RAX.</p>
+                <p>The caller must also reserve 32 bytes of "shadow space" on the stack before the CALL, even if fewer than 4 arguments are passed. This gives the callee a place to spill the register arguments if needed.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Identify the Convention</h3>
+                <p>A function ends with <code>RET 0Ch</code>. (a) What calling convention is this? (b) How many DWORD arguments were passed?</p>
+                <details>
+                    <summary>Hint</summary>
+                    <p><code>RET</code> with a number means the callee cleans up &mdash; that is stdcall. 0Ch = 12 bytes. 12 / 4 = 3 DWORD arguments.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Learn: Arrays -->
+        <section id="learn-arrays" class="section">
+            <h1>Arrays</h1>
+            <p>An array is a block of same-type elements stored one after another in memory. In assembly, there are no array declarations &mdash; arrays are accessed by calculating the address of each element using a base address, an index, and the element size.</p>
+
+            <div class="concept-box">
+                <h3>Array Address Formula</h3>
+<pre class="code-block">Element Address = Base + (Index * Element_Size)</pre>
+                <p>The scale factor in an addressing mode like <code>[eax + ecx*4]</code> tells you the element size. If the scale is 4, each element is a DWORD (4 bytes).</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Element Type</th>
+                            <th>Size</th>
+                            <th>Scale Factor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>BYTE (char)</td>
+                            <td>1 byte</td>
+                            <td>*1</td>
+                        </tr>
+                        <tr>
+                            <td>WORD (short)</td>
+                            <td>2 bytes</td>
+                            <td>*2</td>
+                        </tr>
+                        <tr>
+                            <td>DWORD (int)</td>
+                            <td>4 bytes</td>
+                            <td>*4</td>
+                        </tr>
+                        <tr>
+                            <td>QWORD (long long)</td>
+                            <td>8 bytes</td>
+                            <td>*8</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Index-Based Access Pattern</h3>
+                <p>The base address stays constant; the index changes to access different elements.</p>
+<pre class="code-block">; Array of DWORDs at address in EBX, index in ECX
+mov eax, [ebx + ecx*4]    ; Read array[index]
+add eax, 5                 ; Modify the value
+mov [ebx + ecx*4], eax    ; Write it back
+inc ecx                    ; Next element
+cmp ecx, 16
+jl loop_start              ; Repeat for 16 elements</pre>
+                <p>The <code>*4</code> is the giveaway: this is an array of 4-byte (DWORD/int) values.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Pointer-Advancing Access Pattern</h3>
+                <p>Instead of using an index register, the pointer itself moves forward through the array.</p>
+<pre class="code-block">; Array pointer in EBX
+add [ebx], 5         ; Modify *ptr
+add ebx, 4           ; Advance pointer by element size (4 bytes)
+inc ecx              ; Increment counter
+cmp ecx, 16
+jl loop_start        ; Repeat</pre>
+                <p>The <code>add ebx, 4</code> tells you the element size (4 bytes = DWORD). The pointer moves forward instead of using scaled indexing.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>String Instructions (Block Operations)</h3>
+                <p>x86 has special instructions for processing arrays (called "string instructions" for historical reasons). They use ESI (source) and EDI (destination) implicitly.</p>
+                <table class="ref-table">
+                    <thead>
+                        <tr>
+                            <th>Instruction</th>
+                            <th>Plain English</th>
+                            <th>Registers Used</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>MOVSB / MOVSW / MOVSD</code></td>
+                            <td>Copy bytes/words/dwords from [ESI] to [EDI], advance both</td>
+                            <td>ESI (source), EDI (dest)</td>
+                        </tr>
+                        <tr>
+                            <td><code>CMPSB / CMPSW / CMPSD</code></td>
+                            <td>Compare [ESI] with [EDI], set flags, advance both</td>
+                            <td>ESI, EDI, flags</td>
+                        </tr>
+                        <tr>
+                            <td><code>SCASB / SCASW / SCASD</code></td>
+                            <td>Compare AL/AX/EAX with [EDI], set flags, advance EDI</td>
+                            <td>EAX/AX/AL, EDI</td>
+                        </tr>
+                        <tr>
+                            <td><code>LODSB / LODSW / LODSD</code></td>
+                            <td>Load [ESI] into AL/AX/EAX, advance ESI</td>
+                            <td>ESI, EAX/AX/AL</td>
+                        </tr>
+                        <tr>
+                            <td><code>STOSB / STOSW / STOSD</code></td>
+                            <td>Store AL/AX/EAX to [EDI], advance EDI</td>
+                            <td>EAX/AX/AL, EDI</td>
+                        </tr>
+                        <tr>
+                            <td><code>REP</code> prefix</td>
+                            <td>Repeat the instruction ECX times</td>
+                            <td>ECX (counter)</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="important-note">You will most often see these in standard library implementations (memcpy, memset, strcmp). The REP prefix repeats the instruction ECX times, e.g., <code>REP MOVSD</code> copies ECX dwords from [ESI] to [EDI].</div>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Identify the Array</h3>
+                <p>In this loop, what is the element size? How many elements are processed?</p>
+<pre class="code-block">mov ecx, 0
+loop_start:
+mov eax, [esi + ecx*2]
+add eax, 1
+mov [esi + ecx*2], eax
+inc ecx
+cmp ecx, 10
+jl loop_start</pre>
+                <details>
+                    <summary>Hint</summary>
+                    <p>The scale factor is *2, so each element is 2 bytes (WORD). ECX counts from 0 to 9, so 10 elements are processed.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Learn: Strings -->
+        <section id="learn-strings" class="section">
+            <h1>Strings</h1>
+            <p>Strings are sequences of characters stored in memory. In assembly, a string is just an array of bytes &mdash; there is no special string type. Understanding how strings are encoded and terminated is essential for reverse engineering.</p>
+
+            <div class="concept-box">
+                <h3>ASCII Encoding</h3>
+                <p>ASCII (American Standard Code for Information Interchange) maps numbers 0&ndash;127 to characters. Each character takes 1 byte.</p>
+                <table class="ref-table">
+                    <thead>
+                        <tr>
+                            <th>Range (hex)</th>
+                            <th>Range (decimal)</th>
+                            <th>Characters</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>0x00</td>
+                            <td>0</td>
+                            <td>Null terminator</td>
+                            <td>End of string</td>
+                        </tr>
+                        <tr>
+                            <td>0x20</td>
+                            <td>32</td>
+                            <td>Space</td>
+                            <td>' '</td>
+                        </tr>
+                        <tr>
+                            <td>0x30 &ndash; 0x39</td>
+                            <td>48 &ndash; 57</td>
+                            <td>Digits 0&ndash;9</td>
+                            <td>'0' = 0x30</td>
+                        </tr>
+                        <tr>
+                            <td>0x41 &ndash; 0x5A</td>
+                            <td>65 &ndash; 90</td>
+                            <td>Uppercase A&ndash;Z</td>
+                            <td>'A' = 0x41</td>
+                        </tr>
+                        <tr>
+                            <td>0x61 &ndash; 0x7A</td>
+                            <td>97 &ndash; 122</td>
+                            <td>Lowercase a&ndash;z</td>
+                            <td>'a' = 0x61</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="important-note">Memorize: 0x41='A', 0x61='a', 0x30='0'. When you see hex values in these ranges in a disassembler, you are likely looking at text data.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Null-Terminated Strings</h3>
+                <p>C strings end with a zero byte (0x00). The string "Hello" takes 6 bytes: 48 65 6C 6C 6F 00.</p>
+<pre class="code-block">Address:  0x1000  0x1001  0x1002  0x1003  0x1004  0x1005
+Value:      48      65      6C      6C      6F      00
+Char:       H       e       l       l       o      \0</pre>
+                <p>The null byte (0x00) marks the end. Functions like <code>strlen</code> scan forward until they hit 0x00, then return the count.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Finding String Length</h3>
+                <p>A common assembly pattern for <code>strlen</code>:</p>
+<pre class="code-block">mov edi, string_address  ; Point to start of string
+xor ecx, ecx             ; Counter = 0
+scan_loop:
+cmp byte ptr [edi], 0    ; Is current byte null?
+je done                  ; If yes, we found the end
+inc edi                  ; Move to next byte
+inc ecx                  ; Increment length
+jmp scan_loop
+done:
+; ECX = length of string (not counting the null)</pre>
+                <p>Or using the string instruction: <code>REPNE SCASB</code> with AL=0 scans EDI forward until it finds a zero byte, decrementing ECX each step.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Unicode (UTF-16)</h3>
+                <p>Unicode extends ASCII to support international characters. UTF-16 uses 2 bytes (a WORD) per character.</p>
+                <p>The first 128 Unicode characters are the same as ASCII, just with a 0x00 byte added. 'A' in ASCII is 0x41. 'A' in UTF-16 is 0x41, 0x00.</p>
+                <p>In a hex dump, Unicode strings are easy to spot: they look like ASCII with zero bytes between each character.</p>
+<pre class="code-block">ASCII:    48 65 6C 6C 6F 00
+UTF-16:   48 00 65 00 6C 00 6C 00 6F 00 00 00</pre>
+                <div class="important-note">Windows API functions come in A (ASCII) and W (Wide/Unicode) versions. <code>CreateFileA</code> takes ASCII strings. <code>CreateFileW</code> takes Unicode strings. IDA usually labels these clearly.</div>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Decode a String</h3>
+                <p>Decode this string from hex bytes:</p>
+<pre class="code-block">Memory: 57 6F 72 6C 64 00</pre>
+                <p>What does it say? How long is it (not counting the null)?</p>
+                <details>
+                    <summary>Hint</summary>
+                    <p>Look up each byte: 0x57='W', 0x6F='o', 0x72='r', 0x6C='l', 0x64='d'. The string is "World", length 5.</p>
+                </details>
             </div>
         </section>
 
