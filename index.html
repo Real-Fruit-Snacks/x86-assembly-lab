@@ -73,11 +73,11 @@
             <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('learn-registers')">
                     <h3>Fundamentals</h3>
-                    <p>Register Map, Two's Complement, CPU Flags, Memory Addressing &amp; Data Sizes. The building blocks of assembly.</p>
+                    <p>Register Map, Two's Complement, CPU Flags, Memory Addressing &amp; Data Sizes. Concrete walkthroughs, plain-English tables, and practice challenges.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-arithmetic')">
                     <h3>Instructions</h3>
-                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. Each with inline mini-simulators.</p>
+                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. 21 mini-simulators, before/after register snapshots, and step-by-step walkthroughs.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
@@ -260,7 +260,7 @@ Examples:
                                 <tr><td class="sref-name">SF</td><td><strong>Sign Flag</strong> &mdash; equals the high bit of the result (1 if negative in two's complement).</td></tr>
                                 <tr><td class="sref-name">OF</td><td><strong>Overflow Flag</strong> &mdash; set when signed arithmetic overflows. Used by JL, JLE, JG, JGE (combined with SF).</td></tr>
                             </table>
-                            <p class="sref-note">MOV, LEA, PUSH, POP, CALL, RET, XCHG, and CDQ do NOT set flags. ADD, SUB, INC, DEC, AND, OR, XOR, NEG, CMP, TEST, SHL, SHR, SAR, MUL, DIV all do.</p>
+                            <p class="sref-note">MOV, LEA, PUSH, POP, CALL, RET, NOT, XCHG, CDQ, and NOP do NOT set flags. ADD, SUB, INC, DEC, AND, OR, XOR, NEG, CMP, TEST, SHL, SHR, SAR, MUL, DIV all do.</p>
                         </div>
 
                         <div class="sref-section">

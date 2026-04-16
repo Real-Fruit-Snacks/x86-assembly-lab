@@ -129,23 +129,25 @@ Missing operands and invalid registers produce clear error messages with usage e
 
 ### Tutorials
 
-Thirteen learning sections with embedded mini-simulators you can step through inline.
+Thirteen learning sections with 21 interactive mini-simulators, before/after register snapshots, step-by-step walkthroughs, practice challenges, and plain-English reference tables. All technical jargon (cdecl, IDA Pro, DWORD, etc.) is defined inline on first use.
 
 ```
 Fundamentals:
-  - Register Map        Complete sub-register diagram for all 8 GPRs
+  - Register Map        Complete sub-register diagram, plain-English implicit-use table
   - Two's Complement    Step-by-step negation, ranges, key patterns
-  - Flags               ZF/CF/SF/OF, which instructions set them, CMP truth table
-  - Memory & Data Sizes Addressing modes, dword ptr, IDA var_/arg_ notation
+  - Flags               Worked CMP walkthrough, OF deep dive, concrete flag tracing
+  - Memory & Data Sizes Brackets vs no-brackets walkthrough, scaled array addressing
 
 Instructions:
   - Arithmetic          MOV, ADD, SUB, INC, DEC, NEG, XCHG
   - Bitwise Logic       AND, OR, XOR, NOT, TEST with binary visualization
-  - Multiply & Divide   MUL, IMUL, DIV, IDIV, CDQ with 16-bit variants
-  - Shifts              SHL, SHR, SAR with signed vs unsigned comparison
-  - Branching           CMP, flags, conditional jumps, branch tracing method
-  - Stack & Functions   PUSH, POP, CALL, RET, stack frames, calling convention
-  - Common Idioms       xor reg,reg, test+jnz, LEA math, CDQ+IDIV, prologue/epilogue
+  - Multiply & Divide   EDX:EAX visual diagram, cheat sheet, before/after snapshots,
+                         common mistakes, 4 mini-sims, 3 practice challenges
+  - Shifts              SHL, SHR, SAR with negative-number SAR vs SHR comparison
+  - Branching           Worked branch trace, signed vs unsigned JA/JG comparison,
+                         plain-English jump table with memory aids
+  - Stack & Functions   PUSH/POP LIFO walkthrough, full 9-step CALL sequence table
+  - Common Idioms       XOR zeroing, LEA math breakdown, cdecl cleanup formula
 
 Analysis:
   - Functional Analysis How to read a function and describe it as f(a,b) = ...
@@ -166,7 +168,9 @@ Endianness Guide       Interactive byte-order explorer with worksheet walkthroug
 - **Catppuccin Mocha theme** throughout, including custom scrollbars
 - **Collapsible sidebar** to expand working area; state persists across reloads
 - **Responsive layout** adapts down to mobile widths
-- **Verbose MUL/DIV explanations** (e.g. "unsigned divide: EDX:EAX / ecx = 17÷5 = 3 remainder 2. Good practice: EDX was zeroed first")
+- **Visual walkthroughs** with before/after register snapshots, cheat sheet tables, and common mistakes sections
+- **Verbose step descriptions** (e.g. "unsigned divide: EDX:EAX / ecx = 17÷5 = 3 remainder 2. Good practice: EDX was zeroed first")
+- **Plain-English reference tables** -- every table has beginner-friendly columns, all jargon defined inline
 
 ---
 
@@ -224,7 +228,7 @@ Automated test suite covering correctness, fuzz robustness, and every scenario/e
 | Step-Through walkthroughs | 5 | 5 |
 | Error scenarios | 6 | 6 |
 | Puzzle generations | 30 | 30 |
-| Mini-simulators across tutorials | 11 | 11 |
+| Mini-simulators across tutorials | 21 | 21 |
 
 Every example, scenario, walkthrough, and mini-simulator has been verified to produce the expected register/stack state.
 
