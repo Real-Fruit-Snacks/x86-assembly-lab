@@ -900,6 +900,7 @@ Examples:
 
             <div class="concept-box">
                 <h3>The Four Key Flags</h3>
+                <p>These are the flags you'll use 99% of the time:</p>
                 <table class="ref-table">
                     <tr><th>Flag</th><th>Name</th><th>Set to 1 when...</th><th>Example</th></tr>
                     <tr><td><code>ZF</code></td><td>Zero Flag</td><td>Result is exactly 0</td><td><code>sub eax, eax</code> &rarr; ZF=1</td></tr>
@@ -907,6 +908,19 @@ Examples:
                     <tr><td><code>CF</code></td><td>Carry Flag</td><td>Unsigned overflow/underflow (borrow)</td><td><code>sub 3, 5</code> &rarr; CF=1 (unsigned borrow)</td></tr>
                     <tr><td><code>OF</code></td><td>Overflow Flag</td><td>Signed overflow (result doesn't fit)</td><td><code>add 127, 1</code> in 8-bit &rarr; OF=1</td></tr>
                 </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>Other Flags You May Encounter</h3>
+                <p>These flags exist but come up less often in basic reverse engineering:</p>
+                <table class="ref-table">
+                    <tr><th>Flag</th><th>Name</th><th>What it does</th></tr>
+                    <tr><td><code>PF</code></td><td>Parity Flag</td><td>Set if the result has an even number of 1-bits in the low byte. Rarely checked directly; occasionally used in floating-point comparisons.</td></tr>
+                    <tr><td><code>AF</code></td><td>Auxiliary Carry Flag</td><td>Set if there's a carry from bit 3 to bit 4. Used for BCD (Binary Coded Decimal) arithmetic, which is extremely rare in modern code.</td></tr>
+                    <tr><td><code>DF</code></td><td>Direction Flag</td><td>Controls string instruction direction. DF=0: ESI/EDI increment (forward). DF=1: ESI/EDI decrement (backward). Set with <code>STD</code>, cleared with <code>CLD</code>.</td></tr>
+                    <tr><td><code>IF</code></td><td>Interrupt Flag</td><td>IF=1 enables hardware interrupts. IF=0 disables them. Only relevant in kernel/driver code. Set with <code>STI</code>, cleared with <code>CLI</code>.</td></tr>
+                </table>
+                <div class="important-note">The Direction Flag (DF) is the most important of these. It controls whether string instructions (MOVSB, SCASB, etc.) scan forward or backward through memory. Most code assumes DF=0 (forward). If you see <code>CLD</code> before a string instruction, it's ensuring forward direction.</div>
             </div>
 
             <div class="concept-box">
@@ -1676,6 +1690,7 @@ idiv ecx</pre>
                 <p>SHR fills with zeros, giving 60 (the unsigned answer). SAR fills with the sign bit, giving -4 (the signed answer). <strong>Same bits, completely different results.</strong></p>
 
                 <div class="important-note">SHR vs SAR only matters for negative numbers! For positive numbers, the sign bit is 0, so both fill with zeros and give the same result.</div>
+                <div class="important-note"><code>SAL</code> (Shift Arithmetic Left) is an alias for <code>SHL</code> &mdash; they produce identical results. You may see either mnemonic in disassemblers; they mean the same thing.</div>
 
                 <div class="mini-sim" data-code="mov eax, -16&#10;sar eax, 2">
                     <div class="mini-sim-header">
@@ -1740,9 +1755,11 @@ shl eax, 1</pre>
                     <tr><td><code>JLE / JNG</code></td><td>Jump if Less or Equal (signed)</td><td>ZF=1 or SF!=OF</td><td>a &le; b (signed)</td></tr>
                     <tr><td><code>JG / JNLE</code></td><td>Jump if Greater (signed)</td><td>ZF=0 and SF==OF</td><td>a &gt; b (signed)</td></tr>
                     <tr><td><code>JGE / JNL</code></td><td>Jump if Greater or Equal (signed)</td><td>SF == OF</td><td>a &ge; b (signed)</td></tr>
+                    <tr><td><code>JS</code></td><td>Jump if Sign (result is negative)</td><td>SF = 1</td><td>Result has high bit set</td></tr>
+                    <tr><td><code>JNS</code></td><td>Jump if Not Sign (result is positive)</td><td>SF = 0</td><td>Result has high bit clear</td></tr>
                     <tr><td><code>JMP</code></td><td>Jump Always</td><td>Always</td><td>(unconditional)</td></tr>
                 </table>
-                <div class="important-note">Memory aid: the letters tell you the meaning. <strong>E</strong>=Equal, <strong>N</strong>=Not, <strong>B</strong>=Below, <strong>A</strong>=Above (both unsigned), <strong>L</strong>=Less, <strong>G</strong>=Greater (both signed), <strong>Z</strong>=Zero.</div>
+                <div class="important-note">Memory aid: the letters tell you the meaning. <strong>E</strong>=Equal, <strong>N</strong>=Not, <strong>B</strong>=Below, <strong>A</strong>=Above (both unsigned), <strong>L</strong>=Less, <strong>G</strong>=Greater (both signed), <strong>Z</strong>=Zero, <strong>S</strong>=Sign.</div>
             </div>
 
             <div class="concept-box">
@@ -1986,6 +2003,28 @@ sub esp, 12</pre>
                     <li>After returning, the caller stores EAX somewhere and cleans up ESP.</li>
                 </ol>
             </div>
+
+            <div class="concept-box">
+                <h3>Recursion</h3>
+                <p>Recursion is when a function calls itself. Each recursive call creates a new stack frame, so the stack grows with every call.</p>
+                <pre class="code-block">; int factorial(int n):
+factorial:
+    cmp [ebp+8], 1      ; if n <= 1
+    jle base_case
+    mov eax, [ebp+8]    ; eax = n
+    dec eax              ; eax = n-1
+    push eax             ; push n-1 as argument
+    call factorial       ; factorial(n-1)
+    add esp, 4           ; cleanup
+    imul eax, [ebp+8]   ; eax = factorial(n-1) * n
+    jmp done
+base_case:
+    mov eax, 1           ; return 1
+done:
+    ret</pre>
+                <p>Every recursive function needs a <strong>termination condition</strong> (here: n &le; 1) to stop calling itself. Without one, the stack grows until it overflows and the program crashes.</p>
+                <div class="important-note">In reverse engineering, be cautious of recursive routines without clear termination conditions. Malware sometimes uses infinite recursion as an anti-debugging trick to crash debuggers that try to follow the calls.</div>
+            </div>
         </section>
 
         <!-- Learn: Common Idioms -->
@@ -2091,6 +2130,16 @@ push arg1
 call function
 add esp, 12     ; Caller cleans up 3 args * 4 bytes = 12</pre>
                 <p>The <code>add esp, N</code> after a CALL removes the pushed arguments. <strong>N / 4 = number of arguments.</strong> So <code>add esp, 12</code> means 12 / 4 = 3 arguments were pushed. <code>add esp, 8</code> means 2 arguments. This is a quick way to reverse-engineer function calls.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>LOOP Instruction</h3>
+                <pre class="code-block">mov ecx, 10        ; Loop 10 times
+loop_start:
+    ; ... loop body ...
+    loop loop_start  ; ECX -= 1; jump if ECX != 0</pre>
+                <p><code>LOOP label</code> decrements ECX by 1, then jumps to the label if ECX is not zero. It combines a decrement and conditional jump into one instruction. ECX is the implicit counter register.</p>
+                <div class="important-note">LOOP is less common in modern compiled code (compilers prefer DEC + JNZ which is faster on modern CPUs), but you will still encounter it in hand-written assembly and older code.</div>
             </div>
 
             <div class="practice-box">
@@ -2223,6 +2272,32 @@ var_C  = Func5(var_4, var_C)    = 0 * 256         = 0
                 <p>Track each variable as it gets reassigned. Watch for integer division truncation (192 / 256 = 0, not 0.75).</p>
             </div>
 
+            <div class="concept-box">
+                <h3>Type Inference</h3>
+                <p>In assembly, there are no type declarations. You must <strong>infer</strong> the type of data by observing how it is used &mdash; similar to how you might identify an animal by its behavior ("if it quacks like a duck...").</p>
+                <p><strong>How to infer types:</strong></p>
+                <ul>
+                    <li>Is a value passed to a function with a known prototype? If an argument goes to <code>strcpy</code>, it must be a <code>char*</code>.</li>
+                    <li>Is the value dereferenced with brackets? Then it is a pointer.</li>
+                    <li>Is it accessed with a scale factor like <code>[eax+ecx*4]</code>? Then it is an array index, and elements are 4 bytes.</li>
+                    <li>Is it compared with character values (0x41-0x5A)? It is probably a character.</li>
+                    <li>Are floating-point instructions (FLD, FADD) used on it? It is a float/double.</li>
+                </ul>
+                <p><strong>Walkthrough:</strong></p>
+                <pre class="code-block">foo:
+    push ebp
+    mov ebp, esp
+    mov eax, [ebp+8]      ; first argument
+    mov ebx, [ebp+12]     ; second argument
+    push eax
+    push ebx
+    call strcpy            ; strcpy(dest, src) takes char* arguments
+    pop ebp
+    ret</pre>
+                <p>Since both arguments are passed to <code>strcpy(char* dest, char* src)</code>, we can infer: [ebp+8] is <code>char*</code>, [ebp+12] is <code>char*</code>. The function prototype is <code>char* foo(char* x, char* y)</code>.</p>
+                <div class="important-note">Type inference is one of the most important reverse engineering skills. Once you know the types flowing through a function, you can understand what the function does even without source code. Propagating types across function calls builds understanding of the entire program.</div>
+            </div>
+
             <div class="practice-box">
                 <h3>Practice Tips</h3>
                 <ul>
@@ -2341,6 +2416,19 @@ loop_done:</pre>
                 </table>
             </div>
 
+            <div class="concept-box">
+                <h3>Loop Analysis Procedure</h3>
+                <p>When you encounter a loop in assembly, analyze it systematically:</p>
+                <ol>
+                    <li><strong>Identify the loop control variable</strong> &mdash; which register is the counter? (Usually ECX, or a stack variable)</li>
+                    <li><strong>Find the comparison</strong> &mdash; what is the counter compared against? This tells you the iteration count.</li>
+                    <li><strong>Find the state change</strong> &mdash; how does the counter update? (INC, DEC, ADD, pointer advance)</li>
+                    <li><strong>Check for termination</strong> &mdash; will the loop actually exit? An infinite loop might be intentional (e.g., a server) or a bug.</li>
+                    <li><strong>Identify the loop output</strong> &mdash; what data does the loop produce or modify?</li>
+                    <li><strong>Relate inputs to outputs</strong> &mdash; how do the loop inputs (initial values, array base) connect to the output?</li>
+                </ol>
+            </div>
+
             <div class="practice-box">
                 <h3>Practice</h3>
                 <p>Try pasting these into the Sandbox to see the branch patterns in action:</p>
@@ -2418,6 +2506,13 @@ loop_done:</pre>
                             <td>Convert Double to Quad</td>
                             <td>EAX</td>
                             <td>EDX:EAX</td>
+                            <td>Signed</td>
+                        </tr>
+                        <tr>
+                            <td><code>CWDE</code></td>
+                            <td>Convert Word to Double (Extended)</td>
+                            <td>AX</td>
+                            <td>EAX (full register, not DX:AX)</td>
                             <td>Signed</td>
                         </tr>
                     </tbody>
@@ -2500,6 +2595,19 @@ add eax, ebx          ; Safe: EAX is a proper 32-bit value</pre>
                 <pre class="code-block">movzx eax, byte [ebp+8]   ; Load AND zero-extend in one step
 add eax, ebx               ; Safe: EAX is a proper 32-bit value</pre>
                 <p>The single-instruction form (<code>movzx eax, byte [ebp+8]</code>) is cleaner and what compilers typically generate.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Contraction (Narrowing Values)</h3>
+                <p>Contraction is the opposite of extension: converting a larger value to a smaller one. This is risky because the value may not fit.</p>
+                <pre class="code-block">; Safe: value fits in fewer bits
+mov eax, 64          ; 64 = 0x40 (fits in 8 bits)
+mov al, al           ; AL = 0x40 = 64 (correct)
+
+; Unsafe: value doesn't fit (overflow)
+mov eax, 256         ; 256 = 0x100 (needs 9 bits)
+; If you read just AL, you get 0x00 = 0 (WRONG!)</pre>
+                <p>There is no single instruction for safe contraction. You must check that the upper bits are all zeros (unsigned) or all match the sign bit (signed) before narrowing. If they don't match, the value will be silently truncated and your result will be wrong.</p>
             </div>
 
             <div class="practice-box">
@@ -2684,6 +2792,14 @@ mov [0x00405000], eax   ; Write it back</pre>
 cmp eax, 0          ; The 0 is a constant</pre>
                 <p>String constants are stored at fixed addresses in the program's read-only data section. In IDA, you'll see something like <code>push offset aHelloWorld</code> where <code>aHelloWorld</code> is IDA's auto-generated name for the string's address.</p>
                 <div class="important-note">Constants are not variables in the traditional sense &mdash; they can't be changed at runtime. They're embedded in the machine code itself. However, knowing that a value is a constant (as opposed to something computed at runtime) helps you understand what the code is doing.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Imported Variables</h3>
+                <p>Some variables are stored in external modules (DLLs or shared libraries) and accessed through the Import Address Table (IAT). In a disassembler, these often have recognizable names:</p>
+                <pre class="code-block">mov eax, dword ptr [__imp__SomeGlobal]   ; Read from imported variable
+mov ebx, dword ptr [eax]                  ; Dereference the imported pointer</pre>
+                <p>Imported variables are accessed via a <strong>double dereference</strong>: first read the address from the IAT, then read the actual value at that address. In IDA, these are typically labeled with an <code>__imp__</code> prefix or shown as named imports in the Imports window.</p>
             </div>
 
             <div class="concept-box">
@@ -2971,6 +3087,23 @@ jl loop_start        ; Repeat</pre>
                     </tbody>
                 </table>
                 <div class="important-note">You will most often see these in standard library implementations (memcpy, memset, strcmp). The REP prefix repeats the instruction ECX times, e.g., <code>REP MOVSD</code> copies ECX dwords from [ESI] to [EDI].</div>
+                <div class="important-note">The <strong>Direction Flag (DF)</strong> controls whether ESI/EDI increment (DF=0, forward) or decrement (DF=1, backward) after each operation. Use <code>CLD</code> (Clear Direction Flag) to ensure forward scanning, <code>STD</code> (Set Direction Flag) for backward. Most code assumes DF=0.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Multi-Dimensional Arrays</h3>
+                <p>A 2D array (like a table with rows and columns) is stored as a flat block of memory. The CPU calculates which element to access using a formula. There are two storage orders:</p>
+                <p><strong>Row-Major (most common, used by C/C++):</strong></p>
+                <pre class="code-block">Element Address = Base + (RowIndex * RowSize + ColIndex) * ElementSize</pre>
+                <p>Rows are stored one after another. To move to the next row, skip RowSize elements.</p>
+                <p><strong>Column-Major (used by Fortran):</strong></p>
+                <pre class="code-block">Element Address = Base + (ColIndex * ColSize + RowIndex) * ElementSize</pre>
+                <p>Columns are stored one after another instead.</p>
+                <p>In assembly, a 2D array access often uses LEA to compute the row offset, then adds the column index:</p>
+                <pre class="code-block">; Access array[row][col] where each row has 4 DWORD elements
+; row in EDX, col in EAX, base in ESI
+lea ecx, [eax + edx*4]          ; ecx = col + row*4 (flat index)
+mov eax, [esi + ecx*4]          ; load element (each is 4 bytes)</pre>
             </div>
 
             <div class="practice-box">
@@ -3211,6 +3344,16 @@ add esp, 4</pre>
             </div>
 
             <div class="concept-box">
+                <h3>calloc &mdash; Zero-Initialized Allocation</h3>
+                <pre class="code-block">push 4             ; size of each element (4 bytes)
+push 100           ; number of elements
+call calloc        ; allocate 100 * 4 = 400 bytes, all initialized to 0
+add esp, 8         ; cdecl cleanup (2 arguments)
+mov [ebp-4], eax   ; save the pointer</pre>
+                <p><code>calloc(count, size)</code> is like malloc but takes two arguments (count and element size) and initializes all allocated memory to zero. Useful when you need a clean buffer. If you see two pushes before a call to an allocation function, it may be calloc rather than malloc.</p>
+            </div>
+
+            <div class="concept-box">
                 <h3>Windows Heap API</h3>
                 <p>Windows programs may use HeapAlloc instead of malloc. The pattern is the same: the call returns a pointer, and the pointer is used to access memory.</p>
 <pre class="code-block">push 1000             ; size in bytes
@@ -3307,6 +3450,7 @@ mov dword ptr [eax+4], 20</pre>
                             <td>Divide</td>
                             <td>ST1 = ST1 / ST0, pop</td>
                         </tr>
+                        <tr><td><code>FSQRT</code></td><td>Square root of ST0</td><td>ST0 = sqrt(ST0)</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -3398,6 +3542,16 @@ FSTP dword ptr [ebp-10h]</pre>
                     <li><code>STI</code> = Enable Interrupts, <code>CLI</code> = Disable Interrupts</li>
                 </ul>
                 <p>These are rarely seen in normal application code. STC/CLC appear in rotation operations and some calling conventions that use the carry flag to signal success or failure. STI/CLI appear in kernel and driver code where interrupt handling must be controlled.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>RCL and RCR (Rotate Through Carry)</h3>
+                <p>Like ROL/ROR, but the Carry Flag acts as an extra bit in the rotation.</p>
+                <ul>
+                    <li><code>RCL dest, count</code> &mdash; Rotate left through carry. The CF becomes the new low bit, and the old high bit goes into CF.</li>
+                    <li><code>RCR dest, count</code> &mdash; Rotate right through carry. The CF becomes the new high bit, and the old low bit goes into CF.</li>
+                </ul>
+                <p>RCL/RCR create a (bits+1)-wide rotation that includes the carry flag. They appear in multi-precision arithmetic and some cryptographic routines. Use STC or CLC first to set CF to a known value.</p>
             </div>
 
             <div class="practice-box">

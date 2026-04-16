@@ -647,6 +647,8 @@ function describeInstruction(line, result) {
         jb: `<strong>JB</strong>: Jump if below, unsigned (CF=1). <code>${line}</code>`,
         jl: `<strong>JL</strong>: Jump if less, signed (SF!=OF). <code>${line}</code>`,
         jg: `<strong>JG</strong>: Jump if greater, signed (ZF=0 and SF=OF). <code>${line}</code>`,
+        js: `<strong>JS</strong>: Jump if sign flag set (SF=1, result is negative). <code>${line}</code>`,
+        jns: `<strong>JNS</strong>: Jump if sign flag clear (SF=0, result is non-negative). <code>${line}</code>`,
     };
 
     return (descs[op] || `<code>${line}</code>`) + `<br><span style="color:var(--orange)">${result.description}</span>`;
@@ -945,6 +947,8 @@ const REF_DATA = [
         { name: 'JLE / JNG', desc: 'Jump if Less or Equal (ZF=1 or SF!=OF). Signed. After CMP: a <= b.', ex: 'cmp eax, ebx / jle target → signed <=' },
         { name: 'JG / JNLE', desc: 'Jump if Greater (ZF=0 and SF==OF). Signed. After CMP: a > b.', ex: 'cmp eax, ebx / jg target → signed greater' },
         { name: 'JGE / JNL', desc: 'Jump if Greater or Equal (SF==OF). Signed. After CMP: a >= b.', ex: 'cmp eax, ebx / jge target → signed >=' },
+        { name: 'JS', desc: 'Jump if Sign (SF=1). Result is negative (high bit set).', ex: 'sub eax, ebx / js target → jump if result negative' },
+        { name: 'JNS', desc: 'Jump if Not Sign (SF=0). Result is non-negative (high bit clear).', ex: 'sub eax, ebx / jns target → jump if result positive or zero' },
     ]},
     { cat: 'Stack & Control', entries: [
         { name: 'CALL target', desc: 'Push return address (address of next instruction) onto stack, then jump to target. ESP decreases by 4. Does NOT set flags.', ex: 'call func → push ret_addr; jmp func' },

@@ -791,6 +791,14 @@ class AsmSimulator {
                     desc = this._condJump(operands[0], this.flags.SF === this.flags.OF, 'SF=OF');
                     break;
                 }
+                case 'js': {
+                    desc = this._condJump(operands[0], this.flags.SF === 1, 'SF=1');
+                    break;
+                }
+                case 'jns': {
+                    desc = this._condJump(operands[0], this.flags.SF === 0, 'SF=0');
+                    break;
+                }
                 case 'nop':
                     desc = '(no operation)';
                     break;
@@ -891,7 +899,7 @@ class AsmSimulator {
             'lea','nop','push','pop','call','ret','retn','leave',
             'jmp','je','jz','jne','jnz','jb','jnae','jbe','jna',
             'ja','jnbe','jae','jnb','jc','jnc',
-            'jl','jnge','jle','jng','jg','jnle','jge','jnl',
+            'jl','jnge','jle','jng','jg','jnle','jge','jnl','js','jns',
         ]);
 
         if (valid.has(op)) return null;
