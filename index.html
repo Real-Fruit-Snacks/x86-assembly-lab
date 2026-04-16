@@ -1698,18 +1698,20 @@ shl eax, 1</pre>
             <div class="concept-box">
                 <h3>Step 2: Conditional Jump</h3>
                 <table class="ref-table">
-                    <tr><th>Instruction</th><th>Condition</th><th>After CMP a, b: jumps if...</th></tr>
-                    <tr><td><code>JE / JZ</code></td><td>ZF = 1</td><td>a == b</td></tr>
-                    <tr><td><code>JNE / JNZ</code></td><td>ZF = 0</td><td>a != b</td></tr>
-                    <tr><td><code>JB / JNAE</code></td><td>CF = 1</td><td>a &lt; b (unsigned)</td></tr>
-                    <tr><td><code>JBE / JNA</code></td><td>CF=1 or ZF=1</td><td>a &le; b (unsigned)</td></tr>
-                    <tr><td><code>JA / JNBE</code></td><td>CF=0 and ZF=0</td><td>a &gt; b (unsigned)</td></tr>
-                    <tr><td><code>JAE / JNB</code></td><td>CF = 0</td><td>a &ge; b (unsigned)</td></tr>
-                    <tr><td><code>JL / JNGE</code></td><td>SF != OF</td><td>a &lt; b (signed)</td></tr>
-                    <tr><td><code>JLE / JNG</code></td><td>ZF=1 or SF!=OF</td><td>a &le; b (signed)</td></tr>
-                    <tr><td><code>JG / JNLE</code></td><td>ZF=0 and SF==OF</td><td>a &gt; b (signed)</td></tr>
-                    <tr><td><code>JMP</code></td><td>Always</td><td>(unconditional)</td></tr>
+                    <tr><th>Instruction</th><th>Plain English</th><th>Flag condition</th><th>After CMP a, b: jumps if...</th></tr>
+                    <tr><td><code>JE / JZ</code></td><td>Jump if Equal / Zero</td><td>ZF = 1</td><td>a == b</td></tr>
+                    <tr><td><code>JNE / JNZ</code></td><td>Jump if Not Equal / Not Zero</td><td>ZF = 0</td><td>a != b</td></tr>
+                    <tr><td><code>JB / JNAE</code></td><td>Jump if Below (unsigned)</td><td>CF = 1</td><td>a &lt; b (unsigned)</td></tr>
+                    <tr><td><code>JBE / JNA</code></td><td>Jump if Below or Equal (unsigned)</td><td>CF=1 or ZF=1</td><td>a &le; b (unsigned)</td></tr>
+                    <tr><td><code>JA / JNBE</code></td><td>Jump if Above (unsigned)</td><td>CF=0 and ZF=0</td><td>a &gt; b (unsigned)</td></tr>
+                    <tr><td><code>JAE / JNB</code></td><td>Jump if Above or Equal (unsigned)</td><td>CF = 0</td><td>a &ge; b (unsigned)</td></tr>
+                    <tr><td><code>JL / JNGE</code></td><td>Jump if Less (signed)</td><td>SF != OF</td><td>a &lt; b (signed)</td></tr>
+                    <tr><td><code>JLE / JNG</code></td><td>Jump if Less or Equal (signed)</td><td>ZF=1 or SF!=OF</td><td>a &le; b (signed)</td></tr>
+                    <tr><td><code>JG / JNLE</code></td><td>Jump if Greater (signed)</td><td>ZF=0 and SF==OF</td><td>a &gt; b (signed)</td></tr>
+                    <tr><td><code>JGE / JNL</code></td><td>Jump if Greater or Equal (signed)</td><td>SF == OF</td><td>a &ge; b (signed)</td></tr>
+                    <tr><td><code>JMP</code></td><td>Jump Always</td><td>Always</td><td>(unconditional)</td></tr>
                 </table>
+                <div class="important-note">Memory aid: the letters tell you the meaning. <strong>E</strong>=Equal, <strong>N</strong>=Not, <strong>B</strong>=Below, <strong>A</strong>=Above (both unsigned), <strong>L</strong>=Less, <strong>G</strong>=Greater (both signed), <strong>Z</strong>=Zero.</div>
             </div>
 
             <div class="concept-box">
