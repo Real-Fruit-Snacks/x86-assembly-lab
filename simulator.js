@@ -561,7 +561,7 @@ class AsmSimulator {
                             this.setReg('edx', result < 0 ? 0xFFFFFFFF : 0);
                             desc = `signed multiply (1-operand form): EDX:EAX = EAX * ${src} = ${a} * ${b} = ${result}. ` +
                                    `Low 32 bits → EAX; EDX is set to ${signExt} (sign-extension of result). ` +
-                                   `Note: MUL clobbers EDX regardless.`;
+                                   `Note: 1-operand IMUL clobbers EDX (just like MUL).`;
                         }
                     }
                     break;

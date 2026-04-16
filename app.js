@@ -605,11 +605,15 @@ function describeInstruction(line, result) {
         shl: `<strong>SHL</strong>: Shift left (multiply by 2^n). <code>${line}</code>`,
         shr: `<strong>SHR</strong>: Logical shift right (unsigned divide by 2^n). <code>${line}</code>`,
         sar: `<strong>SAR</strong>: Arithmetic shift right (signed divide by 2^n). <code>${line}</code>`,
-        mul: `<strong>MUL</strong>: Unsigned multiply. Result in EDX:EAX. <code>${line}</code>`,
-        imul: `<strong>IMUL</strong>: Signed multiply. <code>${line}</code>`,
-        div: `<strong>DIV</strong>: Unsigned divide EDX:EAX by source. EAX=quotient, EDX=remainder. <code>${line}</code>`,
-        idiv: `<strong>IDIV</strong>: Signed divide. <code>${line}</code>`,
-        cdq: `<strong>CDQ</strong>: Sign-extend EAX into EDX:EAX. <code>${line}</code>`,
+        mul: `<strong>MUL</strong>: Unsigned multiply &mdash; EDX:EAX = EAX &times; src. Always destroys EDX. <code>${line}</code>`,
+        imul: (operands.split(',').length >= 3)
+            ? `<strong>IMUL</strong> (3-operand): dest = src &times; immediate. Does NOT touch EDX. <code>${line}</code>`
+            : (operands.split(',').length === 2)
+            ? `<strong>IMUL</strong> (2-operand): dest = dest &times; src. Does NOT touch EDX. <code>${line}</code>`
+            : `<strong>IMUL</strong> (1-operand): Signed multiply &mdash; EDX:EAX = EAX &times; src. Destroys EDX. <code>${line}</code>`,
+        div: `<strong>DIV</strong>: Unsigned divide &mdash; EDX:EAX &divide; src. EAX = quotient, EDX = remainder. Must zero EDX first! <code>${line}</code>`,
+        idiv: `<strong>IDIV</strong>: Signed divide &mdash; EDX:EAX &divide; src. EAX = quotient, EDX = remainder. Must CDQ first! <code>${line}</code>`,
+        cdq: `<strong>CDQ</strong>: Sign-extend EAX into EDX &mdash; sets EDX to all-1s if EAX is negative, else 0. Required before IDIV. <code>${line}</code>`,
         lea: `<strong>LEA</strong>: Compute address expression (no memory access). <code>${line}</code>`,
         push: `<strong>PUSH</strong>: Decrement ESP by 4, store value at [ESP]. <code>${line}</code>`,
         pop: `<strong>POP</strong>: Load value from [ESP] into dest, increment ESP by 4. <code>${line}</code>`,
@@ -1200,6 +1204,12 @@ function initQuiz() {
                 const a = rand(5, 40), b = rand(5, 40);
                 return { code: `mov eax, ${a}\nmov ebx, ${b}\nxchg eax, ebx\nsub eax, ebx\nneg eax`, askRegs: ['eax'] };
             },
+            () => {
+                const a = rand(20, 200), b = [3, 5, 7, 9, 11][rand(0, 4)];
+                const neg = rand(0, 1) ? -1 : 1;
+                const val = a * neg;
+                return { code: `mov eax, ${val}\nmov ecx, ${b}\ncdq\nidiv ecx`, askRegs: ['eax', 'edx'] };
+            },
         ];
         return pick(templates)();
     }
@@ -1235,6 +1245,13 @@ function initQuiz() {
             () => {
                 const a = rand(0, 15), b = rand(0, 15);
                 return { code: `mov al, ${a}\nmov cl, al\nmov dl, ${b}\nand al, dl\nxor dl, cl\nmov cl, al\ninc al\ninc dl\nxor dl, al\nnot dl\nand cl, dl`, askRegs: ['eax', 'ecx', 'edx'] };
+            },
+            () => {
+                const a = rand(10, 40), b = rand(2, 6), c = [3, 5, 7][rand(0, 2)];
+                const product = a * b;
+                const neg = rand(0, 1) ? -1 : 1;
+                const val = product * neg;
+                return { code: `mov edx, ${a}\nimul eax, edx, ${b}\nmov ecx, ${c}\ncdq\nidiv ecx\nmov ebx, edx\nadd eax, ebx`, askRegs: ['eax', 'ebx'] };
             },
         ];
         return pick(templates)();

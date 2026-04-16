@@ -272,6 +272,110 @@ p { margin-bottom: 0.7rem; }
     white-space: pre;
 }
 
+/* === MUL/DIV Cheat Sheet Table === */
+.muldiv-cheat {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    margin: 0.8rem 0;
+}
+.muldiv-cheat th {
+    background: var(--surface0);
+    color: var(--accent);
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.muldiv-cheat td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+.muldiv-cheat tr:last-child td { border-bottom: none; }
+.muldiv-cheat code { font-size: 0.8rem; }
+.muldiv-cheat .warn-cell { color: var(--red); font-size: 0.78rem; }
+
+/* Register state snapshot boxes */
+.reg-snapshot {
+    display: flex;
+    gap: 1.2rem;
+    margin: 0.7rem 0;
+    flex-wrap: wrap;
+}
+.reg-snapshot-col {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+}
+.reg-snapshot-col h4 {
+    margin: 0 0 0.4rem 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.reg-snapshot-col .snap-before h4 { color: var(--text-dim); }
+.reg-snapshot-col.snap-after { border-color: var(--accent-dim); }
+.reg-snapshot-col.snap-after h4 { color: var(--accent); }
+.snap-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    padding: 0.15rem 0;
+}
+.snap-row .snap-label { color: var(--text-dim); }
+.snap-row .snap-val { color: var(--text); }
+.snap-row .snap-changed { color: var(--green); font-weight: 600; }
+.snap-row .snap-destroyed { color: var(--red); font-weight: 600; }
+
+/* EDX:EAX visual diagram */
+.edxeax-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 0.8rem 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+}
+.edxeax-box {
+    border: 2px solid var(--border);
+    padding: 0.5rem 1rem;
+    text-align: center;
+    min-width: 120px;
+}
+.edxeax-box.edx-box {
+    border-radius: 6px 0 0 6px;
+    border-right: 1px dashed var(--border);
+    background: rgba(203,166,247,0.08);
+}
+.edxeax-box.eax-box {
+    border-radius: 0 6px 6px 0;
+    border-left: none;
+    background: rgba(137,180,250,0.08);
+}
+.edxeax-box .box-label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+.edxeax-box.edx-box .box-label { color: var(--mauve); }
+.edxeax-box.eax-box .box-label { color: var(--accent); }
+.edxeax-box .box-desc {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+}
+.edxeax-equals {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    padding: 0 0.6rem;
+}
+
 /* === Bit Visualization === */
 .bit-visual {
     background: var(--bg);

@@ -1158,16 +1158,127 @@ xor bl, al</pre>
         <!-- Learn: Multiply & Divide -->
         <section id="learn-muldiv" class="section">
             <h1>Multiply &amp; Divide</h1>
-            <p>These are trickier because they use implicit registers (EDX:EAX) and have signed/unsigned variants.</p>
+            <p>These instructions are confusing at first because they use <strong>hidden (implicit) registers</strong> that don't appear in the instruction itself. This page walks through exactly what happens, step by step.</p>
 
+            <!-- The Big Picture -->
+            <div class="concept-box">
+                <h3>The Big Picture: Why Hidden Registers?</h3>
+                <p>Most instructions show you both operands: <code>add eax, 5</code> clearly reads EAX, adds 5, and stores the result back in EAX. But multiply and divide are different.</p>
+                <p>When you multiply two 32-bit numbers, the result can be up to <strong>64 bits</strong> long (4,294,967,295 &times; 4,294,967,295 = a number too big for one 32-bit register). So x86 uses <strong>two</strong> registers glued together to hold the full result:</p>
+
+                <div class="edxeax-diagram">
+                    <div class="edxeax-box edx-box">
+                        <span class="box-label">EDX</span>
+                        <span class="box-desc">upper 32 bits</span>
+                    </div>
+                    <div class="edxeax-box eax-box">
+                        <span class="box-label">EAX</span>
+                        <span class="box-desc">lower 32 bits</span>
+                    </div>
+                    <span class="edxeax-equals">=</span>
+                    <span style="color:var(--text)">one 64-bit value</span>
+                </div>
+
+                <p>Think of it like a car's odometer rolling over: when the lower counter (EAX) fills up, the overflow spills into the upper counter (EDX). For small results, EDX ends up as 0 and EAX holds the whole answer.</p>
+                <p>Division works the same way in reverse &mdash; the CPU reads <strong>EDX:EAX</strong> as the input (dividend), divides it by your operand, and splits the answer into quotient (EAX) and remainder (EDX).</p>
+                <p>The key thing to remember: <strong>you only write one operand</strong> (like <code>mul ecx</code>), but the CPU is secretly reading and writing EAX and EDX behind the scenes.</p>
+            </div>
+
+            <!-- Cheat Sheet -->
+            <div class="concept-box">
+                <h3>Cheat Sheet: All MUL/DIV Instructions at a Glance</h3>
+                <table class="muldiv-cheat">
+                    <thead>
+                        <tr>
+                            <th>Instruction</th>
+                            <th>What It Does</th>
+                            <th>Hidden Inputs</th>
+                            <th>Results Go To</th>
+                            <th>Watch Out</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>MUL src</code></td>
+                            <td>Unsigned multiply</td>
+                            <td>EAX &times; src</td>
+                            <td>EDX:EAX</td>
+                            <td class="warn-cell">Always destroys EDX</td>
+                        </tr>
+                        <tr>
+                            <td><code>IMUL src</code></td>
+                            <td>Signed multiply (1-op)</td>
+                            <td>EAX &times; src</td>
+                            <td>EDX:EAX</td>
+                            <td class="warn-cell">Always destroys EDX</td>
+                        </tr>
+                        <tr>
+                            <td><code>IMUL d, s</code></td>
+                            <td>Signed multiply (2-op)</td>
+                            <td>d &times; s</td>
+                            <td>d only</td>
+                            <td style="color:var(--green)">EDX is safe</td>
+                        </tr>
+                        <tr>
+                            <td><code>IMUL d, s, i</code></td>
+                            <td>Signed multiply (3-op)</td>
+                            <td>s &times; i</td>
+                            <td>d only</td>
+                            <td style="color:var(--green)">EDX is safe</td>
+                        </tr>
+                        <tr>
+                            <td><code>DIV src</code></td>
+                            <td>Unsigned divide</td>
+                            <td>EDX:EAX &divide; src</td>
+                            <td>EAX=quotient, EDX=remainder</td>
+                            <td class="warn-cell">Must zero EDX first</td>
+                        </tr>
+                        <tr>
+                            <td><code>IDIV src</code></td>
+                            <td>Signed divide</td>
+                            <td>EDX:EAX &divide; src</td>
+                            <td>EAX=quotient, EDX=remainder</td>
+                            <td class="warn-cell">Must CDQ first</td>
+                        </tr>
+                        <tr>
+                            <td><code>CDQ</code></td>
+                            <td>Sign-extend EAX</td>
+                            <td>EAX</td>
+                            <td>EDX</td>
+                            <td>Prepares EDX:EAX for IDIV</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- MUL -->
             <div class="concept-box">
                 <h3>MUL &mdash; Unsigned Multiply</h3>
-                <p><code>MUL src</code> multiplies EAX by src. The 64-bit result goes into <strong>EDX:EAX</strong>.</p>
-                <ul>
-                    <li><strong>EAX</strong> = low 32 bits of the result</li>
-                    <li><strong>EDX</strong> = high 32 bits (often 0 if the result fits in 32 bits)</li>
-                </ul>
-                <div class="important-note">MUL always clobbers EDX! Even if EDX had a value you cared about, it gets overwritten.</div>
+                <p>When you write <code>mul ecx</code>, here is what the CPU actually does:</p>
+                <ol>
+                    <li>Reads EAX (you don't see this in the instruction &mdash; it's implicit)</li>
+                    <li>Reads your operand (ECX in this case)</li>
+                    <li>Multiplies them: EAX &times; ECX</li>
+                    <li>Stores the full 64-bit result across EDX:EAX (low 32 bits in EAX, upper 32 bits in EDX)</li>
+                </ol>
+
+                <p><strong>Walkthrough:</strong> <code>mul ecx</code> where EAX=100 and ECX=5</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">100</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">5</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">42 (some old value)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>mul ecx</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">500</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">5 (unchanged)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-destroyed">0 (destroyed!)</span></div>
+                    </div>
+                </div>
+                <p>100 &times; 5 = 500. That fits in 32 bits, so EAX = 500 and EDX = 0 (no overflow). But EDX was 42 before &mdash; that value is gone forever. MUL always overwrites EDX, even when the upper half is 0.</p>
+
                 <div class="mini-sim" data-code="mov eax, 100&#10;mov ecx, 5&#10;mul ecx">
                     <div class="mini-sim-header">
                         <span>Try it: 100 * 5</span>
@@ -1178,14 +1289,37 @@ xor bl, al</pre>
                 </div>
             </div>
 
+            <!-- DIV -->
             <div class="concept-box">
                 <h3>DIV &mdash; Unsigned Divide</h3>
-                <p><code>DIV src</code> divides <strong>EDX:EAX</strong> by src.</p>
-                <ul>
-                    <li><strong>EAX</strong> = quotient (result of division)</li>
-                    <li><strong>EDX</strong> = remainder (modulo)</li>
-                </ul>
-                <div class="important-note">You MUST zero EDX before DIV (unless you intentionally want a 64-bit dividend). Use <code>xor edx, edx</code> or <code>mov edx, 0</code>.</div>
+                <p>When you write <code>div ecx</code>, the CPU does:</p>
+                <ol>
+                    <li>Reads EDX:EAX as a single 64-bit number (the dividend)</li>
+                    <li>Reads your operand (ECX) as the divisor</li>
+                    <li>Computes: quotient = EDX:EAX &divide; ECX, remainder = EDX:EAX mod ECX</li>
+                    <li>Stores quotient in EAX, remainder in EDX</li>
+                </ol>
+
+                <p><strong>Walkthrough:</strong> Dividing 17 by 5</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">17 (the number we want to divide)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">0 (zeroed with xor edx, edx)</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">5 (the divisor)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>div ecx</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">3 (quotient: 17 / 5)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-changed">2 (remainder: 17 % 5)</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">5 (unchanged)</span></div>
+                    </div>
+                </div>
+                <p>17 &divide; 5 = 3 remainder 2. The quotient (3) goes to EAX, the remainder (2) goes to EDX.</p>
+                <p>You get <strong>both answers at once</strong> &mdash; no need for separate divide and modulo operations.</p>
+
+                <div class="important-note"><strong>Why you must zero EDX first:</strong> DIV reads EDX:EAX as a 64-bit number. If EDX has leftover garbage (say, 7), the CPU thinks the dividend is 7&times;4,294,967,296 + 17 = 30,064,771,089 instead of just 17. You'll get a completely wrong answer or a crash. Always use <code>xor edx, edx</code> before DIV.</div>
+
                 <div class="mini-sim" data-code="mov eax, 17&#10;xor edx, edx&#10;mov ecx, 5&#10;div ecx">
                     <div class="mini-sim-header">
                         <span>Try it: 17 / 5 = 3 remainder 2</span>
@@ -1196,25 +1330,82 @@ xor bl, al</pre>
                 </div>
             </div>
 
+            <!-- IMUL -->
             <div class="concept-box">
                 <h3>IMUL &mdash; Signed Multiply</h3>
-                <p>IMUL has three forms:</p>
-                <ul>
-                    <li><code>IMUL src</code> &mdash; EDX:EAX = EAX * src (one operand, like MUL but signed)</li>
-                    <li><code>IMUL dest, src</code> &mdash; dest = dest * src (two operands)</li>
-                    <li><code>IMUL dest, src, imm</code> &mdash; dest = src * imm (three operands)</li>
-                </ul>
-                <p>The 2- and 3-operand forms do NOT affect EDX.</p>
+                <p>IMUL is the signed version of MUL, but it has <strong>three forms</strong> that work differently:</p>
+
+                <p><strong>Form 1 (1 operand):</strong> <code>imul src</code> &mdash; works like MUL but with signed numbers. EDX:EAX = EAX &times; src. Destroys EDX.</p>
+                <p><strong>Form 2 (2 operands):</strong> <code>imul dest, src</code> &mdash; dest = dest &times; src. <strong>Does NOT touch EDX.</strong></p>
+                <p><strong>Form 3 (3 operands):</strong> <code>imul dest, src, immediate</code> &mdash; dest = src &times; immediate. <strong>Does NOT touch EDX.</strong></p>
+
+                <p>The 2-operand and 3-operand forms are the most common because they're simpler (no hidden registers, result goes where you tell it). The 1-operand form is rare in practice.</p>
+
+                <p><strong>Walkthrough:</strong> <code>imul eax, edx, 14</code> where EDX=512</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before:</h4>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">512</span></div>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">0 (doesn't matter)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>imul eax, edx, 14</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">7168 (512 * 14)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">512 (still safe!)</span></div>
+                    </div>
+                </div>
+                <p>Notice: EAX gets the result (512 &times; 14 = 7168), but EDX is untouched. The 3-operand form reads from EDX (the source), multiplies by 14 (the immediate), and stores in EAX (the destination). Clear and explicit &mdash; no hidden registers.</p>
+
+                <div class="mini-sim" data-code="mov edx, 512&#10;imul eax, edx, 14&#10;mov ecx, -7&#10;imul eax, ecx">
+                    <div class="mini-sim-header">
+                        <span>Try it: 512*14, then result * -7</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
+            <!-- CDQ + IDIV -->
             <div class="concept-box">
                 <h3>IDIV &amp; CDQ &mdash; Signed Divide</h3>
-                <p><code>IDIV src</code> is signed division of EDX:EAX by src.</p>
-                <p><strong>Before IDIV</strong>, use <code>CDQ</code> to sign-extend EAX into EDX:EAX:</p>
+                <p><code>IDIV</code> is signed division. Like DIV, it reads EDX:EAX as the dividend and divides by your operand. But since the numbers are <strong>signed</strong>, EDX can't just be zero &mdash; it needs to be the <strong>sign extension</strong> of EAX. That's what CDQ does.</p>
+
+                <p><strong>What is CDQ?</strong> CDQ (Convert Doubleword to Quadword) looks at the sign bit of EAX and fills EDX accordingly:</p>
                 <ul>
-                    <li>If EAX &ge; 0: EDX becomes 0x00000000</li>
-                    <li>If EAX &lt; 0: EDX becomes 0xFFFFFFFF</li>
+                    <li>If EAX is positive (or zero): EDX becomes <code>0x00000000</code> (all zeros)</li>
+                    <li>If EAX is negative: EDX becomes <code>0xFFFFFFFF</code> (all ones)</li>
                 </ul>
+                <p>This makes EDX:EAX a valid 64-bit signed representation of whatever value was in EAX. It's the signed equivalent of <code>xor edx, edx</code> &mdash; you <strong>always</strong> use CDQ before IDIV, just like you always zero EDX before DIV.</p>
+
+                <p><strong>Walkthrough:</strong> Dividing 7168 by -65</p>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before CDQ:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">7168</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">??? (unknown)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After CDQ:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">7168 (unchanged)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-changed">0 (7168 is positive, so EDX = 0)</span></div>
+                    </div>
+                </div>
+                <div class="reg-snapshot">
+                    <div class="reg-snapshot-col">
+                        <h4>Before IDIV (after CDQ):</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-val">7168 (dividend)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-val">0 (sign-extended)</span></div>
+                        <div class="snap-row"><span class="snap-label">ECX =</span> <span class="snap-val">-65 (divisor)</span></div>
+                    </div>
+                    <div class="reg-snapshot-col snap-after">
+                        <h4>After <code>idiv ecx</code>:</h4>
+                        <div class="snap-row"><span class="snap-label">EAX =</span> <span class="snap-changed">-110 (quotient: 7168 / -65)</span></div>
+                        <div class="snap-row"><span class="snap-label">EDX =</span> <span class="snap-changed">18 (remainder: 7168 % 65)</span></div>
+                    </div>
+                </div>
+                <p>7168 &divide; (-65) = -110 remainder 18. The <strong>pattern to memorize</strong>: always write CDQ immediately before IDIV. They go together like <code>xor edx, edx</code> goes with DIV.</p>
+
                 <div class="mini-sim" data-code="mov eax, 7168&#10;mov ecx, -65&#10;cdq&#10;idiv ecx">
                     <div class="mini-sim-header">
                         <span>Try it: 7168 / (-65)</span>
@@ -1225,24 +1416,72 @@ xor bl, al</pre>
                 </div>
             </div>
 
+            <!-- Common Mistakes -->
             <div class="concept-box">
-                <h3>16-bit MUL and DIV</h3>
-                <p>When using 16-bit operands (e.g., <code>div cx</code>), the behavior changes:</p>
-                <ul>
-                    <li><code>MUL cx</code>: DX:AX = AX * CX</li>
-                    <li><code>DIV cx</code>: AX = DX:AX / CX, DX = remainder</li>
-                </ul>
-                <p>Notice it uses DX:AX (16-bit halves) instead of EDX:EAX.</p>
+                <h3>Common Mistakes</h3>
+
+                <p><strong>Mistake 1: Forgetting to zero EDX before DIV</strong></p>
+                <pre class="code-block">mov eax, 10       ; Want to divide 10 by 3
+mov ecx, 3
+div ecx            ; BUG! EDX might be 7 from earlier
+; CPU computes: (7 * 4294967296 + 10) / 3 = garbage</pre>
+                <p>Fix: Add <code>xor edx, edx</code> before the DIV.</p>
+
+                <p><strong>Mistake 2: Forgetting CDQ before IDIV</strong></p>
+                <pre class="code-block">mov eax, -20       ; Want to divide -20 by 4
+mov ecx, 4
+idiv ecx            ; BUG! EDX is not sign-extended
+; CPU reads EDX:EAX as wrong 64-bit value</pre>
+                <p>Fix: Add <code>cdq</code> immediately before IDIV.</p>
+
+                <p><strong>Mistake 3: Expecting EDX to survive a MUL</strong></p>
+                <pre class="code-block">mov edx, 42        ; Important value in EDX
+mov eax, 5
+mov ecx, 3
+mul ecx             ; EDX is now 0 (or overflow bits), not 42!
+; Your important value is destroyed</pre>
+                <p>Fix: Save EDX to another register or the stack before MUL, if you need it later.</p>
             </div>
 
+            <!-- 16-bit -->
+            <div class="concept-box">
+                <h3>16-bit MUL and DIV</h3>
+                <p>When using 16-bit operands (e.g., <code>div cx</code>), the same logic applies but with 16-bit registers:</p>
+                <ul>
+                    <li><code>MUL cx</code>: DX:AX = AX &times; CX (32-bit result across DX and AX)</li>
+                    <li><code>DIV cx</code>: AX = DX:AX &divide; CX, DX = remainder</li>
+                </ul>
+                <p>Same concept, smaller registers. DX:AX is the 16-bit equivalent of EDX:EAX.</p>
+            </div>
+
+            <!-- Practice Challenges -->
             <div class="practice-box">
-                <h3>Practice Challenge</h3>
+                <h3>Practice Challenge 1</h3>
                 <p>What are EAX and EDX after this code?</p>
                 <pre class="code-block">mov eax, 252
 mov ecx, 6
-mul ecx
-; Now what's in EAX and EDX?</pre>
-                <p>Remember: MUL puts the full result in EDX:EAX. Does 252 * 6 fit in 32 bits?</p>
+mul ecx</pre>
+                <p>Hint: 252 &times; 6 = 1,512. Is that bigger than 4,294,967,295 (max 32-bit unsigned)? If not, what is EDX?</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Challenge 2</h3>
+                <p>What are EAX and EDX after this code?</p>
+                <pre class="code-block">mov eax, 29
+xor edx, edx
+mov ecx, 4
+div ecx</pre>
+                <p>Hint: Think about what 29 &divide; 4 is. What's the whole number part? What's left over?</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice Challenge 3</h3>
+                <p>What are EAX and EDX after this code?</p>
+                <pre class="code-block">mov eax, -45
+mov ecx, 7
+cdq
+idiv ecx</pre>
+                <p>Hint: What did CDQ do to EDX? Then: -45 &divide; 7 = ? remainder ?</p>
             </div>
         </section>
 
