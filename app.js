@@ -616,6 +616,8 @@ function describeInstruction(line, result) {
         shl: `<strong>SHL</strong>: Shift left (multiply by 2^n). <code>${line}</code>`,
         shr: `<strong>SHR</strong>: Logical shift right (unsigned divide by 2^n). <code>${line}</code>`,
         sar: `<strong>SAR</strong>: Arithmetic shift right (signed divide by 2^n). <code>${line}</code>`,
+        rol: `<strong>ROL</strong>: Rotate left &mdash; bits shift left, the top bit wraps around to the bottom. <code>${line}</code>`,
+        ror: `<strong>ROR</strong>: Rotate right &mdash; bits shift right, the bottom bit wraps around to the top. <code>${line}</code>`,
         mul: `<strong>MUL</strong>: Unsigned multiply &mdash; EDX:EAX = EAX &times; src. Always destroys EDX. <code>${line}</code>`,
         imul: (operands.split(',').length >= 3)
             ? `<strong>IMUL</strong> (3-operand): dest = src &times; immediate. Does NOT touch EDX. <code>${line}</code>`
@@ -891,6 +893,8 @@ const REF_DATA = [
         { name: 'SHL dest, count', desc: 'Shift left. Multiply by 2^count. Zeros fill right.', ex: 'shl eax, 2 → eax *= 4' },
         { name: 'SHR dest, count', desc: 'Logical shift right. Unsigned divide by 2^count. Zeros fill left.', ex: 'shr eax, 3 → eax /= 8' },
         { name: 'SAR dest, count', desc: 'Arithmetic shift right. Signed divide by 2^count. Preserves sign bit.', ex: 'sar ecx, 1 → ecx /= 2 (signed)' },
+        { name: 'ROL dest, count', desc: 'Rotate left. Bits shift left; top bit wraps to bottom. Used in cryptography.', ex: 'rol al, 1 → circular shift left' },
+        { name: 'ROR dest, count', desc: 'Rotate right. Bits shift right; bottom bit wraps to top.', ex: 'ror al, 1 → circular shift right' },
     ]},
     { cat: 'Branching', entries: [
         { name: 'CMP a, b', desc: 'Compare: computes a - b, sets flags, discards result.', ex: 'cmp ebx, 20 → flags based on ebx-20' },

@@ -40,6 +40,10 @@
             <li><a href="#learn-conventions" class="nav-link" data-section="learn-conventions">Calling Conventions</a></li>
             <li><a href="#learn-arrays" class="nav-link" data-section="learn-arrays">Arrays</a></li>
             <li><a href="#learn-strings" class="nav-link" data-section="learn-strings">Strings</a></li>
+            <li><a href="#learn-structures" class="nav-link" data-section="learn-structures">Structures</a></li>
+            <li><a href="#learn-heap" class="nav-link" data-section="learn-heap">Dynamic Memory</a></li>
+            <li><a href="#learn-floatingpoint" class="nav-link" data-section="learn-floatingpoint">Floating Point</a></li>
+            <li><a href="#learn-misc" class="nav-link" data-section="learn-misc">Misc Instructions</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -3068,6 +3072,325 @@ UTF-16:   48 00 65 00 6C 00 6C 00 6F 00 00 00</pre>
                 <details>
                     <summary>Hint</summary>
                     <p>Look up each byte: 0x57='W', 0x6F='o', 0x72='r', 0x6C='l', 0x64='d'. The string is "World", length 5.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Structures -->
+        <section id="learn-structures" class="section">
+            <h1>Structures</h1>
+            <p>A structure (struct) is a group of related values packed together in memory. Unlike an array where every element is the same type, a struct can contain different types &mdash; a DWORD, a WORD, and two BYTEs all in one block.</p>
+
+            <div class="concept-box">
+                <h3>How Structs Look in Assembly</h3>
+                <p>A struct is accessed through a base pointer plus different offsets. The offsets and sizes vary because the fields have different types.</p>
+<pre class="code-block">; struct MyStruct { DWORD a; WORD b; BYTE c; BYTE d; };
+; Base address of struct in EAX
+mov dword ptr [eax], 2000000000   ; field 'a' at offset +0 (4 bytes)
+mov word ptr [eax+4], 30000       ; field 'b' at offset +4 (2 bytes)
+mov byte ptr [eax+6], 255         ; field 'c' at offset +6 (1 byte)
+mov byte ptr [eax+7], 1           ; field 'd' at offset +7 (1 byte)</pre>
+            </div>
+
+            <div class="concept-box">
+                <h3>How to Spot a Struct</h3>
+                <p>Multiple accesses from the same base register at different offsets with different sizes = struct.</p>
+                <ul>
+                    <li>All same size at regular intervals &rarr; likely an array</li>
+                    <li>Different sizes at irregular offsets &rarr; likely a struct</li>
+                    <li>Same base register used repeatedly &rarr; accessing fields of one struct</li>
+                </ul>
+            </div>
+
+            <div class="concept-box">
+                <h3>Structs on the Stack</h3>
+                <p>The same struct but allocated on the stack, using EBP offsets instead of a pointer register:</p>
+<pre class="code-block">mov dword ptr [ebp-20h], 2000000000  ; field 'a'
+mov word ptr [ebp-1Ch], 30000         ; field 'b'
+mov byte ptr [ebp-1Ah], 255           ; field 'c'
+mov byte ptr [ebp-19h], 1             ; field 'd'</pre>
+                <div class="important-note">On the stack, struct fields look just like local variables. The giveaway is the different access sizes (dword, word, byte) at adjacent offsets.</div>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Identify the Struct Fields</h3>
+                <p>Look at this code and identify each field's type and size:</p>
+<pre class="code-block">mov dword ptr [ecx], 100        ; field at offset +0
+mov byte ptr [ecx+4], 65        ; field at offset +4
+mov byte ptr [ecx+5], 0         ; field at offset +5
+mov word ptr [ecx+6], 8080      ; field at offset +6</pre>
+                <details>
+                    <summary>Hint</summary>
+                    <p>Offset +0: DWORD (4 bytes, value 100). Offset +4: BYTE (1 byte, value 65 = 'A' in ASCII). Offset +5: BYTE (1 byte, value 0). Offset +6: WORD (2 bytes, value 8080). Total struct size: 8 bytes.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Dynamic Memory -->
+        <section id="learn-heap" class="section">
+            <h1>Dynamic Memory</h1>
+            <p>So far, all data has been on the stack (local variables) or at fixed addresses (globals). But programs can also request memory at runtime from the heap &mdash; a pool of memory managed by the operating system.</p>
+
+            <div class="concept-box">
+                <h3>Stack vs Heap</h3>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Stack</th>
+                            <th>Heap</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Allocated by</td>
+                            <td>Function prologue (automatic)</td>
+                            <td>malloc/HeapAlloc (manual)</td>
+                        </tr>
+                        <tr>
+                            <td>Freed by</td>
+                            <td>Function epilogue (automatic)</td>
+                            <td>free/HeapFree (manual)</td>
+                        </tr>
+                        <tr>
+                            <td>Lifetime</td>
+                            <td>Only during function</td>
+                            <td>Until explicitly freed</td>
+                        </tr>
+                        <tr>
+                            <td>Access</td>
+                            <td>[ebp-N] offsets</td>
+                            <td>Through a pointer</td>
+                        </tr>
+                        <tr>
+                            <td>Speed</td>
+                            <td>Very fast</td>
+                            <td>Slower</td>
+                        </tr>
+                        <tr>
+                            <td>Size</td>
+                            <td>Limited (usually ~1MB)</td>
+                            <td>Large (limited by system RAM)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>malloc/free Pattern</h3>
+                <p>The most common allocation pattern in C-compiled code:</p>
+<pre class="code-block">; Allocate 100 bytes
+push 100              ; size argument
+call malloc           ; returns pointer in EAX
+add esp, 4            ; cdecl cleanup
+mov [ebp-4], eax      ; save the pointer as a local variable
+
+; Use the allocated memory
+mov dword ptr [eax], 42  ; write to the heap through the pointer
+
+; Free the memory
+push dword ptr [ebp-4]   ; push the pointer
+call free
+add esp, 4</pre>
+                <p>Key observation: after malloc, the return value (EAX) is used as a base pointer for memory access. That is the hallmark of heap allocation.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Windows Heap API</h3>
+                <p>Windows programs may use HeapAlloc instead of malloc. The pattern is the same: the call returns a pointer, and the pointer is used to access memory.</p>
+<pre class="code-block">push 1000             ; size in bytes
+push 0                ; flags
+push hHeap            ; heap handle
+call HeapAlloc        ; returns pointer in EAX</pre>
+            </div>
+
+            <div class="concept-box">
+                <h3>How to Tell Stack from Heap</h3>
+                <p>When you see a memory access, ask yourself where the address came from:</p>
+                <ul>
+                    <li>Accessed via <code>[ebp-N]</code> or <code>[esp+N]</code> &rarr; stack</li>
+                    <li>Address came from a function return value (EAX after CALL) &rarr; likely heap</li>
+                    <li>Same pointer used across multiple functions &rarr; heap (stack memory dies when the function returns)</li>
+                </ul>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Stack or Heap?</h3>
+                <p>Consider this code:</p>
+<pre class="code-block">push 64
+call malloc
+add esp, 4
+mov [ebp-8], eax
+mov dword ptr [eax+0], 10
+mov dword ptr [eax+4], 20</pre>
+                <p>Is <code>[ebp-8]</code> stack or heap? What about the memory accessed through the pointer stored at <code>[ebp-8]</code>?</p>
+                <details>
+                    <summary>Hint</summary>
+                    <p><code>[ebp-8]</code> is a stack location &mdash; it is a local variable at a fixed offset from EBP. But the value stored there is a pointer returned by malloc. The memory at <code>[eax+0]</code> and <code>[eax+4]</code> is heap memory &mdash; it was dynamically allocated. So the pointer lives on the stack, but it points to the heap.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Floating Point -->
+        <section id="learn-floatingpoint" class="section">
+            <h1>Floating Point</h1>
+            <p>Everything we have covered so far uses integer math. But sometimes programs need fractional numbers (like 3.14 or -0.5). x86 handles these with a separate Floating Point Unit (FPU) that has its own registers and instructions.</p>
+
+            <div class="concept-box">
+                <h3>FPU Register Stack</h3>
+                <p>The FPU has 8 registers called ST0 through ST7, organized as a stack. ST0 is always the top.</p>
+                <ul>
+                    <li><code>FLD</code> pushes a value onto the FPU stack (into ST0, shifting everything else down)</li>
+                    <li><code>FST</code>/<code>FSTP</code> copies ST0 to memory or another register (FSTP also pops)</li>
+                </ul>
+                <p>Think of it like a stack of plates: FLD adds a plate on top, FSTP takes the top plate off.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>FPU Instructions</h3>
+                <table class="cheat-table">
+                    <thead>
+                        <tr>
+                            <th>Instruction</th>
+                            <th>Plain English</th>
+                            <th>Operation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>FLD src</code></td>
+                            <td>Load floating-point value onto FPU stack</td>
+                            <td>Push src onto ST0</td>
+                        </tr>
+                        <tr>
+                            <td><code>FST dest</code></td>
+                            <td>Store ST0 to memory (keep on stack)</td>
+                            <td>dest = ST0</td>
+                        </tr>
+                        <tr>
+                            <td><code>FSTP dest</code></td>
+                            <td>Store ST0 to memory and pop</td>
+                            <td>dest = ST0, then pop</td>
+                        </tr>
+                        <tr>
+                            <td><code>FADD</code></td>
+                            <td>Add top two values on FPU stack</td>
+                            <td>ST1 = ST1 + ST0, pop</td>
+                        </tr>
+                        <tr>
+                            <td><code>FSUB</code></td>
+                            <td>Subtract</td>
+                            <td>ST1 = ST1 - ST0, pop</td>
+                        </tr>
+                        <tr>
+                            <td><code>FMUL</code></td>
+                            <td>Multiply</td>
+                            <td>ST1 = ST1 * ST0, pop</td>
+                        </tr>
+                        <tr>
+                            <td><code>FDIV</code></td>
+                            <td>Divide</td>
+                            <td>ST1 = ST1 / ST0, pop</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="concept-box">
+                <h3>IEEE 754 Basics</h3>
+                <p>Floating-point numbers are stored in a special format called IEEE 754: sign bit + exponent + mantissa (fractional part).</p>
+                <ul>
+                    <li><strong>Single precision</strong> (32-bit / <code>float</code>): 1 sign bit + 8 exponent bits + 23 mantissa bits</li>
+                    <li><strong>Double precision</strong> (64-bit / <code>double</code>): 1 sign bit + 11 exponent bits + 52 mantissa bits</li>
+                </ul>
+                <p>Even simple numbers like 10 look strange in floating-point: 10.0 = 0x41200000. Use an online IEEE 754 converter to check.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>How to Spot Floating-Point Code</h3>
+                <p>All FPU instructions start with F: FLD, FST, FADD, FSUB, etc. If you see instructions starting with F, you are in floating-point territory.</p>
+                <p>Modern code may also use SSE instructions with XMM registers (ADDSS, MULSD, MOVSS, etc.). These are single-instruction operations on floating-point values without using the FPU stack.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Read the Floating-Point Code</h3>
+                <p>You see this sequence of instructions:</p>
+<pre class="code-block">FLD dword ptr [ebp-8]
+FADD dword ptr [ebp-4]
+FSTP dword ptr [ebp-10h]</pre>
+                <p>What is this doing in plain English?</p>
+                <details>
+                    <summary>Hint</summary>
+                    <p>Load the float at [ebp-8], add the float at [ebp-4] to it, store the result at [ebp-10h]. It is computing local3 = local1 + local2.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Miscellaneous Instructions -->
+        <section id="learn-misc" class="section">
+            <h1>Miscellaneous Instructions</h1>
+            <p>Beyond the core instructions, x86 has many specialized instructions that appear in real-world code. You do not need to memorize them all, but recognizing them helps you understand what a program is doing.</p>
+
+            <div class="concept-box">
+                <h3>ROL and ROR (Rotate)</h3>
+                <p>Unlike shifts (which lose bits off the end), rotations wrap bits around. The bit that falls off one side reappears on the other.</p>
+                <div class="bit-visual">
+                    <div class="bit-row"><span class="bit-label">Before:</span><span class="bits">0 1 0 0 0 0 0 0</span><span class="bit-val">= 0x40</span></div>
+                    <div class="bit-row"><span class="bit-label">ROL 1:</span><span class="bits">1 0 0 0 0 0 0 0</span><span class="bit-val">= 0x80 (top bit wrapped to bottom)</span></div>
+                    <div class="bit-row"><span class="bit-label">ROL 1:</span><span class="bits">0 0 0 0 0 0 0 1</span><span class="bit-val">= 0x01 (wrapped again)</span></div>
+                </div>
+                <p>Rotations are used in cryptography and hashing algorithms. If you see ROL or ROR in malware, it is often part of an encoding/decoding routine.</p>
+                <div class="mini-sim" data-code="mov al, 0x40&#10;rol al, 1&#10;rol al, 1&#10;rol al, 1" data-bits="8">
+                    <div class="mini-sim-header">
+                        <span>Try it: Watch ROL wrap bits around</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>INT (Software Interrupt)</h3>
+                <p>INT calls a system interrupt handler by number. It transfers control to the operating system or a debugger.</p>
+                <ul>
+                    <li><code>INT 3</code> (opcode 0xCC) = Breakpoint. This is by far the most common INT you will see. Debuggers use it to pause execution. Malware uses it as an anti-debugging trick &mdash; if no debugger is attached, INT 3 crashes the program.</li>
+                    <li><code>INT 0x80</code> = Linux system call (older method, replaced by SYSCALL/SYSENTER on modern systems).</li>
+                </ul>
+                <div class="important-note">If you see INT 3 scattered through code, it might be an anti-debugging technique. The malware is checking if a debugger will catch the breakpoint.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>PUSHA/POPA and PUSHAD/POPAD</h3>
+                <p>Push or pop ALL general-purpose registers at once.</p>
+                <ul>
+                    <li><code>PUSHA</code>: pushes AX, CX, DX, BX, SP, BP, SI, DI (16-bit versions)</li>
+                    <li><code>PUSHAD</code>: pushes EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI (32-bit versions)</li>
+                    <li><code>POPA</code>/<code>POPAD</code>: reverse of PUSHA/PUSHAD &mdash; restores all registers from the stack</li>
+                </ul>
+                <p>Common in packers (programs that compress or encrypt executables). A packer saves all registers with PUSHAD, does its unpacking work, then restores with POPAD.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>PUSHF/POPF</h3>
+                <p>Push or pop the FLAGS register. Used when code needs to save and restore the processor flag state (ZF, CF, SF, OF, etc.) across a block of instructions that might change them.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>STC/CLC and STI/CLI</h3>
+                <ul>
+                    <li><code>STC</code> = Set Carry Flag (CF=1), <code>CLC</code> = Clear Carry Flag (CF=0)</li>
+                    <li><code>STI</code> = Enable Interrupts, <code>CLI</code> = Disable Interrupts</li>
+                </ul>
+                <p>These are rarely seen in normal application code. STC/CLC appear in rotation operations and some calling conventions that use the carry flag to signal success or failure. STI/CLI appear in kernel and driver code where interrupt handling must be controlled.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: What Is This Code Doing?</h3>
+                <p>You see PUSHAD at the start of a code block and POPAD at the end, with complex bit manipulation in between. What is likely happening?</p>
+                <details>
+                    <summary>Hint</summary>
+                    <p>All registers are being saved and then restored. This is the signature of a packer or a decryption stub &mdash; the code does its work without permanently altering any registers. After POPAD, execution continues as if nothing happened, but the code in between has unpacked or decoded something in memory.</p>
                 </details>
             </div>
         </section>

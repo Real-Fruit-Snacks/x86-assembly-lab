@@ -320,7 +320,7 @@ class AsmSimulator {
 
         // Operand count validation
         const needsOps = {
-            mov:2, movsx:2, movzx:2, add:2, sub:2, and:2, or:2, xor:2, cmp:2, test:2, shl:2, sal:2, shr:2, sar:2,
+            mov:2, movsx:2, movzx:2, add:2, sub:2, and:2, or:2, xor:2, cmp:2, test:2, shl:2, sal:2, shr:2, sar:2, rol:2, ror:2,
             inc:1, dec:1, neg:1, not:1, mul:1, div:1, imul:1, idiv:1,
             xchg:2, lea:2, push:1, pop:1,
             nop:0, cdq:0, ret:0,
@@ -331,13 +331,13 @@ class AsmSimulator {
         }
 
         // Dest validation for instructions that write to a register or memory
-        const writesDest = ['mov','movsx','movzx','add','sub','inc','dec','neg','not','and','or','xor','shl','sal','shr','sar','xchg','lea','pop'];
+        const writesDest = ['mov','movsx','movzx','add','sub','inc','dec','neg','not','and','or','xor','shl','sal','shr','sar','rol','ror','xchg','lea','pop'];
         if (writesDest.includes(op) && operands[0] && !this.isValidDest(operands[0])) {
             return { description: `"${operands[0]}" is not a valid register or memory operand. Valid registers: EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP, AL-DL, AH-DH, AX-DX. Memory: [ebp-4], dword ptr [eax]`, changedRegs: [], error: true };
         }
 
         // Source validation for 2-operand instructions
-        const needs2 = ['mov','movsx','movzx','add','sub','and','or','xor','cmp','test','shl','shr','sar','sal','xchg'];
+        const needs2 = ['mov','movsx','movzx','add','sub','and','or','xor','cmp','test','shl','shr','sar','sal','rol','ror','xchg'];
         if (needs2.includes(op) && operands[1] !== undefined) {
             const srcVal = this.readOperand(operands[1]);
             if (srcVal === null && op !== 'lea') {
@@ -493,6 +493,36 @@ class AsmSimulator {
                     const result = signed >> count;
                     this.writeOperand(dest, this.fromSigned(result, bits), bits);
                     desc = `${dest} = ${result} (signed /${2**count})`;
+                    break;
+                }
+                case 'rol': {
+                    const dest = operands[0];
+                    const bits = this.isReg(dest) ? this.regBits(dest) : 32;
+                    const count = this.readOperand(operands[1]) & 0x1F;
+                    const mask = (2 ** bits) - 1;
+                    let val = this.readOperand(dest) & mask;
+                    for (let i = 0; i < count; i++) {
+                        const msb = (val >> (bits - 1)) & 1;
+                        val = ((val << 1) | msb) & mask;
+                    }
+                    this.writeOperand(dest, val, bits);
+                    const cf = val & 1;
+                    desc = `rotate left ${count}: ${dest} = ${val}. Each bit shifts left; the top bit wraps around to the bottom. CF = ${cf}`;
+                    break;
+                }
+                case 'ror': {
+                    const dest = operands[0];
+                    const bits = this.isReg(dest) ? this.regBits(dest) : 32;
+                    const count = this.readOperand(operands[1]) & 0x1F;
+                    const mask = (2 ** bits) - 1;
+                    let val = this.readOperand(dest) & mask;
+                    for (let i = 0; i < count; i++) {
+                        const lsb = val & 1;
+                        val = ((val >>> 1) | (lsb << (bits - 1))) & mask;
+                    }
+                    this.writeOperand(dest, val, bits);
+                    const cf = (val >> (bits - 1)) & 1;
+                    desc = `rotate right ${count}: ${dest} = ${val}. Each bit shifts right; the bottom bit wraps around to the top. CF = ${cf}`;
                     break;
                 }
                 case 'mul': {
@@ -856,7 +886,7 @@ class AsmSimulator {
         const valid = new Set([
             'mov','movsx','movzx','add','sub','inc','dec','neg','xchg',
             'and','or','xor','not','test','cmp',
-            'shl','sal','shr','sar',
+            'shl','sal','shr','sar','rol','ror',
             'mul','imul','div','idiv','cdq',
             'lea','nop','push','pop','call','ret','retn','leave',
             'jmp','je','jz','jne','jnz','jb','jnae','jbe','jna',
