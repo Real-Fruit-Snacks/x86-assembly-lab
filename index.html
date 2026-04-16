@@ -49,6 +49,9 @@
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
             <li><a href="#bitwise-calc" class="nav-link" data-section="bitwise-calc">Bitwise Calculator</a></li>
             <li><a href="#endianness" class="nav-link" data-section="endianness">Endianness Guide</a></li>
+            <li><a href="#ascii-table" class="nav-link" data-section="ascii-table">ASCII Table</a></li>
+            <li><a href="#flags-calc" class="nav-link" data-section="flags-calc">Flags Calculator</a></li>
+            <li><a href="#address-calc" class="nav-link" data-section="address-calc">Address Calculator</a></li>
         </ul>
     </nav>
 
@@ -117,6 +120,18 @@
                 <div class="feature-card" onclick="navigate('endianness')">
                     <h3>Endianness Guide</h3>
                     <p>Interactive byte-order explorer. Type any hex value and see how it's stored in little-endian vs big-endian memory.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('ascii-table')">
+                    <h3>ASCII Table</h3>
+                    <p>Interactive character lookup. Click any cell or type a character, decimal, or hex value to see all representations instantly.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('flags-calc')">
+                    <h3>Flags Calculator</h3>
+                    <p>Enter an operation (ADD, SUB, CMP, etc.) and two values. See which flags get set, why, and which conditional jumps would fire.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('address-calc')">
+                    <h3>Address Calculator</h3>
+                    <p>Compute effective addresses from any addressing mode. Stack frame calculator auto-fills all offsets from an EBP value.</p>
                 </div>
             </div>
 
@@ -3618,6 +3633,170 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
                 <p style="margin-top:0.5rem">Notice: in big endian, the memory order matches how we write the hex value. In little endian, the bytes appear "reversed."</p>
             </div>
         </section>
+
+        <!-- ASCII Table -->
+        <section id="ascii-table" class="section">
+            <h1>ASCII Table</h1>
+            <p>ASCII maps every character to a number between 0 and 127. In assembly, characters are just bytes -- when you see <code>0x41</code> in a register, that is the letter 'A'. This tool lets you look up any character, decimal, or hex value instantly.</p>
+
+            <div class="converter-box">
+                <h3>Quick Lookup</h3>
+                <div class="converter-row">
+                    <label>Look up:</label>
+                    <input type="text" id="ascii-input" placeholder="Type a character, decimal, or hex (0x41)...">
+                </div>
+                <div id="ascii-result" style="margin-top:0.75rem;font-family:monospace;font-size:0.9rem"></div>
+            </div>
+
+            <h3 style="margin-top:1.5rem">Printable Characters (32-126)</h3>
+            <div id="ascii-grid" style="margin-top:0.5rem">
+                <!-- Populated by JS as a grid of clickable character cells -->
+            </div>
+
+            <div class="concept-box" style="margin-top:1.5rem">
+                <h3>Key Ranges to Memorize</h3>
+                <table class="ref-table" style="font-size:0.82rem">
+                    <tr><th>Hex</th><th>Dec</th><th>Meaning</th></tr>
+                    <tr><td><code>0x00</code></td><td>0</td><td>Null terminator</td></tr>
+                    <tr><td><code>0x09</code></td><td>9</td><td>Tab</td></tr>
+                    <tr><td><code>0x0A</code></td><td>10</td><td>Line Feed (newline on Linux)</td></tr>
+                    <tr><td><code>0x0D</code></td><td>13</td><td>Carriage Return</td></tr>
+                    <tr><td><code>0x20</code></td><td>32</td><td>Space</td></tr>
+                    <tr><td><code>0x30</code>-<code>0x39</code></td><td>48-57</td><td>'0'-'9'</td></tr>
+                    <tr><td><code>0x41</code>-<code>0x5A</code></td><td>65-90</td><td>'A'-'Z'</td></tr>
+                    <tr><td><code>0x61</code>-<code>0x7A</code></td><td>97-122</td><td>'a'-'z'</td></tr>
+                </table>
+            </div>
+
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>Useful Tricks</h3>
+                <table class="ref-table" style="font-size:0.82rem">
+                    <tr><th>Trick</th><th>How It Works</th></tr>
+                    <tr><td>Uppercase to lowercase</td><td>Add 0x20 (OR with 0x20). <code>'A' (0x41) + 0x20 = 'a' (0x61)</code></td></tr>
+                    <tr><td>Lowercase to uppercase</td><td>Subtract 0x20 (AND with 0xDF). <code>'a' (0x61) AND 0xDF = 'A' (0x41)</code></td></tr>
+                    <tr><td>Digit character to number</td><td>Subtract 0x30. <code>'7' (0x37) - 0x30 = 7</code></td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- Flags Calculator -->
+        <section id="flags-calc" class="section">
+            <h1>Flags Calculator</h1>
+            <p>Enter an operation and two values to see which flags get set and which conditional jumps would fire. Use this to check your work on branching exercises.</p>
+
+            <div class="converter-box">
+                <div class="converter-controls">
+                    <label>Operation:
+                        <select id="flags-op">
+                            <option value="ADD">ADD</option>
+                            <option value="SUB">SUB</option>
+                            <option value="CMP">CMP</option>
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
+                            <option value="XOR">XOR</option>
+                            <option value="TEST">TEST</option>
+                            <option value="INC">INC</option>
+                            <option value="DEC">DEC</option>
+                            <option value="NEG">NEG</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="converter-row">
+                    <label>Value A:</label>
+                    <input type="text" id="flags-a" placeholder="e.g. 7 or 0xFF">
+                </div>
+                <div class="converter-row">
+                    <label>Value B:</label>
+                    <input type="text" id="flags-b" placeholder="e.g. 10 or 0x0A">
+                </div>
+                <div class="converter-controls">
+                    <label>Bit width:
+                        <select id="flags-bits">
+                            <option value="8">8-bit</option>
+                            <option value="16">16-bit</option>
+                            <option value="32" selected>32-bit</option>
+                        </select>
+                    </label>
+                </div>
+                <div style="margin-top:0.75rem">
+                    <button id="flags-go" class="sim-btn primary">Calculate</button>
+                </div>
+            </div>
+
+            <div id="flags-result" style="margin-top:1rem">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="concept-box" style="margin-top:1rem">
+                <h3>CMP and TEST</h3>
+                <p style="font-size:0.85rem;margin:0">Remember: <code>CMP</code> is identical to <code>SUB</code> but discards the result. <code>TEST</code> is identical to <code>AND</code> but discards the result. Both only set flags.</p>
+            </div>
+        </section>
+
+        <!-- Address / Offset Calculator -->
+        <section id="address-calc" class="section">
+            <h1>Address / Offset Calculator</h1>
+            <p>Calculate effective addresses from x86 addressing expressions. Enter register values and an addressing mode to see the computed address step by step.</p>
+
+            <div class="converter-box">
+                <h3>Addressing Mode</h3>
+                <div class="converter-row">
+                    <label>Base register value:</label>
+                    <input type="text" id="addr-base" placeholder="Base (e.g. 0x0028FF74)">
+                </div>
+                <div class="converter-row">
+                    <label>Index register value:</label>
+                    <input type="text" id="addr-index" placeholder="Index (e.g. 3)">
+                </div>
+                <div class="converter-controls">
+                    <label>Scale:
+                        <select id="addr-scale">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="4" selected>4</option>
+                            <option value="8">8</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="converter-row">
+                    <label>Displacement:</label>
+                    <input type="text" id="addr-disp" placeholder="Displacement (e.g. -4 or 8)">
+                </div>
+                <div style="margin-top:0.75rem">
+                    <button id="addr-go" class="sim-btn primary">Calculate</button>
+                </div>
+            </div>
+
+            <div id="addr-result" style="margin-top:1rem">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="concept-box" style="margin-top:1.5rem">
+                <h3>Stack Frame Quick Reference</h3>
+                <p style="font-size:0.85rem">Given an EBP value, here are the standard stack frame offsets:</p>
+                <table class="ref-table" style="font-size:0.82rem">
+                    <tr><th>Expression</th><th>Meaning</th></tr>
+                    <tr><td><code>[ebp+12]</code></td><td>Second argument</td></tr>
+                    <tr><td><code>[ebp+8]</code></td><td>First argument</td></tr>
+                    <tr><td><code>[ebp+4]</code></td><td>Return address</td></tr>
+                    <tr><td><code>[ebp+0]</code></td><td>Saved EBP</td></tr>
+                    <tr><td><code>[ebp-4]</code></td><td>First local variable</td></tr>
+                    <tr><td><code>[ebp-8]</code></td><td>Second local variable</td></tr>
+                </table>
+                <div class="converter-row" style="margin-top:0.75rem">
+                    <label>EBP value:</label>
+                    <input type="text" id="addr-ebp" placeholder="Enter EBP value (e.g. 0x0028FF74)">
+                </div>
+                <div id="addr-frame-result" style="margin-top:0.5rem;font-family:monospace;font-size:0.85rem">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="important-note" style="margin-top:1rem">
+                <p>The formula is: <strong>Effective Address = Base + (Index * Scale) + Displacement</strong>. The scale factor tells you the element size: *1 = bytes, *2 = words, *4 = dwords, *8 = qwords.</p>
+            </div>
+        </section>
+
     </main>
 
     <script src="simulator.js"></script>

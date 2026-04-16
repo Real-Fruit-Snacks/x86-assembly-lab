@@ -376,6 +376,40 @@ p { margin-bottom: 0.7rem; }
     padding: 0 0.6rem;
 }
 
+/* === ASCII Table Grid === */
+#ascii-grid {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 2px;
+    margin: 0.8rem 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+}
+.ascii-cell {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.25rem 0.15rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ascii-cell:hover { background: var(--bg-hover); }
+.ascii-cell.active { background: var(--accent-dim); border-color: var(--accent); }
+.ascii-cell.control { opacity: 0.5; }
+.ascii-cell .ascii-hex { display: block; color: var(--text-dim); font-size: 0.65rem; }
+.ascii-cell .ascii-char { display: block; color: var(--text); font-weight: 600; }
+.ascii-cell.printable .ascii-char { color: var(--accent); }
+#ascii-result {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    min-height: 1.5rem;
+}
+
 /* === Bit Visualization === */
 .bit-visual {
     background: var(--bg);

@@ -81,6 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initBitwiseCalc();
     initReference();
     initEndianness();
+    initAsciiTable();
+    initFlagsCalc();
+    initAddressCalc();
     initQuiz();
     initStackPlayground();
 });
@@ -1040,6 +1043,240 @@ function initEndianness() {
 
     input.addEventListener('input', update);
     update();
+}
+
+// ============================================================
+// ASCII TABLE
+// ============================================================
+
+function initAsciiTable() {
+    const input = document.getElementById('ascii-input');
+    const result = document.getElementById('ascii-result');
+    const grid = document.getElementById('ascii-grid');
+    if (!input || !grid) return;
+
+    // Build the grid (0-127)
+    function charLabel(code) {
+        if (code === 0) return 'NUL';
+        if (code === 9) return 'TAB';
+        if (code === 10) return 'LF';
+        if (code === 13) return 'CR';
+        if (code === 27) return 'ESC';
+        if (code === 32) return 'SPC';
+        if (code === 127) return 'DEL';
+        if (code < 32) return '.';
+        return String.fromCharCode(code);
+    }
+
+    grid.innerHTML = '';
+    for (let code = 0; code < 128; code++) {
+        const cell = document.createElement('div');
+        cell.className = 'ascii-cell' + (code >= 32 && code < 127 ? ' printable' : ' control');
+        cell.innerHTML = `<span class="ascii-hex">${code.toString(16).toUpperCase().padStart(2,'0')}</span><span class="ascii-char">${charLabel(code)}</span>`;
+        cell.addEventListener('click', () => showCode(code));
+        grid.appendChild(cell);
+    }
+
+    function showCode(code) {
+        const ch = code >= 32 && code < 127 ? `'${String.fromCharCode(code)}'` : charLabel(code);
+        const category = code < 32 ? 'Control character' : code === 127 ? 'Control character' : code >= 48 && code <= 57 ? 'Digit' : code >= 65 && code <= 90 ? 'Uppercase letter' : code >= 97 && code <= 122 ? 'Lowercase letter' : 'Punctuation/symbol';
+        result.innerHTML = `<strong>${ch}</strong> &mdash; Decimal: <code>${code}</code> | Hex: <code>0x${code.toString(16).toUpperCase().padStart(2,'0')}</code> | Binary: <code>${code.toString(2).padStart(8,'0')}</code> | ${category}`;
+        // Highlight the cell
+        grid.querySelectorAll('.ascii-cell').forEach(c => c.classList.remove('active'));
+        grid.children[code]?.classList.add('active');
+    }
+
+    input.addEventListener('input', () => {
+        const v = input.value.trim();
+        if (!v) { result.innerHTML = ''; return; }
+        let code;
+        if (/^0x[0-9a-f]+$/i.test(v)) code = parseInt(v, 16);
+        else if (/^\d+$/.test(v)) code = parseInt(v);
+        else if (v.length === 1) code = v.charCodeAt(0);
+        else { result.innerHTML = `<span style="color:var(--text-dim)">Type a single character, a decimal number (0-127), or a hex value (0x00-0x7F)</span>`; return; }
+        if (code >= 0 && code < 128) showCode(code);
+        else result.innerHTML = `<span style="color:var(--red)">Value ${code} is outside ASCII range (0-127)</span>`;
+    });
+}
+
+// ============================================================
+// FLAGS CALCULATOR
+// ============================================================
+
+function initFlagsCalc() {
+    const opEl = document.getElementById('flags-op');
+    const aEl = document.getElementById('flags-a');
+    const bEl = document.getElementById('flags-b');
+    const bitsEl = document.getElementById('flags-bits');
+    const goBtn = document.getElementById('flags-go');
+    const resultEl = document.getElementById('flags-result');
+    if (!goBtn) return;
+
+    function parseVal(v) {
+        v = v.trim();
+        if (/^-?0x/i.test(v)) return parseInt(v, 16);
+        if (/^-?0b/i.test(v)) return parseInt(v.replace(/^-?0b/i, ''), 2) * (v.startsWith('-') ? -1 : 1);
+        return parseInt(v);
+    }
+
+    goBtn.addEventListener('click', () => {
+        const op = opEl.value;
+        const bits = parseInt(bitsEl.value);
+        const maxU = 2 ** bits;
+        const mask = maxU - 1;
+        let a = parseVal(aEl.value);
+        let b = parseVal(bEl.value || '0');
+        if (isNaN(a)) { resultEl.innerHTML = '<span style="color:var(--red)">Enter a valid value for A</span>'; return; }
+
+        // Mask to bit width
+        a = ((a % maxU) + maxU) % maxU;
+        b = ((b % maxU) + maxU) % maxU;
+        const aS = a >= maxU / 2 ? a - maxU : a;
+        const bS = b >= maxU / 2 ? b - maxU : b;
+
+        let result, rawResult;
+        switch (op) {
+            case 'ADD': rawResult = a + b; result = rawResult & mask; break;
+            case 'SUB': case 'CMP': rawResult = a - b; result = ((rawResult % maxU) + maxU) % maxU; break;
+            case 'AND': case 'TEST': rawResult = a & b; result = rawResult; break;
+            case 'OR': rawResult = a | b; result = rawResult & mask; break;
+            case 'XOR': rawResult = a ^ b; result = rawResult & mask; break;
+            case 'INC': rawResult = a + 1; result = rawResult & mask; break;
+            case 'DEC': rawResult = a - 1; result = ((rawResult % maxU) + maxU) % maxU; break;
+            case 'NEG': rawResult = -a; result = ((rawResult % maxU) + maxU) % maxU; break;
+            default: return;
+        }
+
+        const resultS = result >= maxU / 2 ? result - maxU : result;
+        const zf = result === 0 ? 1 : 0;
+        const sf = (result >> (bits - 1)) & 1;
+
+        // CF: unsigned overflow/borrow
+        let cf = 0;
+        if (op === 'ADD' || op === 'INC') cf = (a + b) > mask ? 1 : 0;
+        if (op === 'SUB' || op === 'CMP' || op === 'DEC') cf = a < b ? 1 : 0;
+        if (op === 'NEG') cf = a !== 0 ? 1 : 0;
+        // AND/OR/XOR/TEST always clear CF
+        if (['AND','OR','XOR','TEST'].includes(op)) cf = 0;
+
+        // OF: signed overflow
+        let of = 0;
+        if (op === 'ADD' || op === 'INC') {
+            const sResult = aS + (op === 'INC' ? 1 : bS);
+            of = (sResult > (maxU/2 - 1) || sResult < -(maxU/2)) ? 1 : 0;
+        }
+        if (op === 'SUB' || op === 'CMP' || op === 'DEC') {
+            const sResult = aS - (op === 'DEC' ? 1 : bS);
+            of = (sResult > (maxU/2 - 1) || sResult < -(maxU/2)) ? 1 : 0;
+        }
+        if (op === 'NEG') of = a === (maxU / 2) ? 1 : 0;
+        if (['AND','OR','XOR','TEST'].includes(op)) of = 0;
+
+        // Which jumps would fire
+        const jumps = [];
+        if (zf === 1) jumps.push('JE/JZ (equal/zero)');
+        if (zf === 0) jumps.push('JNE/JNZ (not equal)');
+        if (cf === 1) jumps.push('JB/JC (below, unsigned)');
+        if (cf === 0 && zf === 0) jumps.push('JA (above, unsigned)');
+        if (cf === 0) jumps.push('JAE/JNC (above or equal, unsigned)');
+        if (cf === 1 || zf === 1) jumps.push('JBE (below or equal, unsigned)');
+        if (sf !== of) jumps.push('JL (less, signed)');
+        if (zf === 1 || sf !== of) jumps.push('JLE (less or equal, signed)');
+        if (zf === 0 && sf === of) jumps.push('JG (greater, signed)');
+        if (sf === of) jumps.push('JGE (greater or equal, signed)');
+        if (sf === 1) jumps.push('JS (sign flag set, negative)');
+
+        const noB = ['INC','DEC','NEG','TEST','AND','OR','XOR'].includes(op);
+        const opStr = noB ? `${op} ${a}${op === 'INC' || op === 'DEC' || op === 'NEG' ? '' : ', ' + b}` : `${op} ${a}, ${b}`;
+
+        resultEl.innerHTML = `
+            <div style="margin-bottom:0.8rem"><strong>${opStr}</strong> (${bits}-bit)</div>
+            <div style="margin-bottom:0.8rem">Result: <code>${result}</code> (unsigned) = <code>${resultS}</code> (signed) = <code>0x${result.toString(16).toUpperCase().padStart(bits/4,'0')}</code></div>
+            <table class="ref-table" style="margin-bottom:0.8rem">
+                <tr><th>Flag</th><th>Value</th><th>Why</th></tr>
+                <tr><td><strong>ZF</strong> (Zero)</td><td style="color:var(${zf?'--green':'--text-dim'})">${zf}</td><td>${zf ? 'Result is zero' : 'Result is not zero'}</td></tr>
+                <tr><td><strong>SF</strong> (Sign)</td><td style="color:var(${sf?'--green':'--text-dim'})">${sf}</td><td>${sf ? 'High bit is 1 (negative if signed)' : 'High bit is 0 (positive if signed)'}</td></tr>
+                <tr><td><strong>CF</strong> (Carry)</td><td style="color:var(${cf?'--green':'--text-dim'})">${cf}</td><td>${cf ? 'Unsigned overflow or borrow occurred' : 'No unsigned overflow'}</td></tr>
+                <tr><td><strong>OF</strong> (Overflow)</td><td style="color:var(${of?'--green':'--text-dim'})">${of}</td><td>${of ? 'Signed result out of range (sign flipped unexpectedly)' : 'Signed result is in range'}</td></tr>
+            </table>
+            <div><strong>Conditional jumps that would fire:</strong></div>
+            <ul style="margin:0.3rem 0 0 1.2rem;font-size:0.85rem">${jumps.map(j => `<li>${j}</li>`).join('')}</ul>
+        `;
+    });
+}
+
+// ============================================================
+// ADDRESS / OFFSET CALCULATOR
+// ============================================================
+
+function initAddressCalc() {
+    const baseEl = document.getElementById('addr-base');
+    const indexEl = document.getElementById('addr-index');
+    const scaleEl = document.getElementById('addr-scale');
+    const dispEl = document.getElementById('addr-disp');
+    const goBtn = document.getElementById('addr-go');
+    const resultEl = document.getElementById('addr-result');
+    const ebpEl = document.getElementById('addr-ebp');
+    const frameResult = document.getElementById('addr-frame-result');
+    if (!goBtn) return;
+
+    function parseHexOrDec(v) {
+        v = v.trim();
+        if (/^-?0x/i.test(v)) return parseInt(v, 16);
+        return parseInt(v);
+    }
+
+    goBtn.addEventListener('click', () => {
+        const base = parseHexOrDec(baseEl.value || '0');
+        const index = parseHexOrDec(indexEl.value || '0');
+        const scale = parseInt(scaleEl.value);
+        const disp = parseHexOrDec(dispEl.value || '0');
+        if (isNaN(base)) { resultEl.innerHTML = '<span style="color:var(--red)">Enter a valid base value</span>'; return; }
+
+        const indexScaled = index * scale;
+        const effective = (base + indexScaled + disp) >>> 0;
+
+        resultEl.innerHTML = `
+            <div style="font-size:0.85rem;margin-bottom:0.5rem"><strong>Effective Address = Base + (Index * Scale) + Displacement</strong></div>
+            <div style="font-family:monospace;font-size:0.85rem">
+                = 0x${base.toString(16).toUpperCase()} + (${index} * ${scale}) + (${disp})<br>
+                = 0x${base.toString(16).toUpperCase()} + ${indexScaled} + (${disp})<br>
+                = <strong style="color:var(--green)">0x${effective.toString(16).toUpperCase().padStart(8,'0')}</strong> (${effective} decimal)
+            </div>
+        `;
+    });
+
+    // Stack frame calculator
+    function updateFrame() {
+        const ebp = parseHexOrDec(ebpEl?.value || '0');
+        if (isNaN(ebp) || !ebpEl?.value.trim()) { if (frameResult) frameResult.innerHTML = ''; return; }
+
+        const offsets = [
+            { off: 16, label: '[ebp+16]', meaning: 'Third argument (arg_8)' },
+            { off: 12, label: '[ebp+12]', meaning: 'Second argument (arg_4)' },
+            { off: 8, label: '[ebp+8]', meaning: 'First argument (arg_0)' },
+            { off: 4, label: '[ebp+4]', meaning: 'Return address' },
+            { off: 0, label: '[ebp+0]', meaning: 'Saved EBP' },
+            { off: -4, label: '[ebp-4]', meaning: 'First local variable (var_4)' },
+            { off: -8, label: '[ebp-8]', meaning: 'Second local variable (var_8)' },
+            { off: -12, label: '[ebp-12]', meaning: 'Third local variable (var_C)' },
+        ];
+
+        frameResult.innerHTML = `<table class="ref-table" style="font-size:0.82rem">
+            <tr><th>Stack Offset</th><th>Address</th><th>What It Is</th></tr>
+            ${offsets.map(o => {
+                const addr = (ebp + o.off) >>> 0;
+                const isCurrent = o.off === 0;
+                return `<tr${isCurrent ? ' style="color:var(--accent);font-weight:600"' : ''}>
+                    <td><code>${o.label}</code></td>
+                    <td><code>0x${addr.toString(16).toUpperCase().padStart(8,'0')}</code></td>
+                    <td>${o.meaning}</td>
+                </tr>`;
+            }).join('')}
+        </table>`;
+    }
+
+    if (ebpEl) ebpEl.addEventListener('input', updateFrame);
 }
 
 // ============================================================
