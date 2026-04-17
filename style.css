@@ -250,6 +250,55 @@ p { margin-bottom: 0.7rem; }
 }
 .practice-box h3 { color: var(--green); margin-top: 0; font-size: 0.95rem; }
 
+/* === Confirmation Modal === */
+.confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 17, 27, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: confirmFadeIn 0.15s ease-out;
+}
+@keyframes confirmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.confirm-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
+    max-width: 440px;
+    width: calc(100% - 2rem);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: confirmSlideIn 0.18s ease-out;
+}
+@keyframes confirmSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.confirm-dialog h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--red);
+    font-size: 1.05rem;
+}
+.confirm-dialog p {
+    margin: 0 0 1.2rem 0;
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.confirm-dialog .confirm-buttons {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: flex-end;
+}
+.confirm-dialog .sim-btn {
+    min-width: 90px;
+}
+
 .important-note {
     background: rgba(249,226,175,0.1);
     border-left: 3px solid var(--yellow);

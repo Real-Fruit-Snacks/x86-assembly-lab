@@ -89,6 +89,48 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
+// CONFIRMATION MODAL
+// ============================================================
+
+function confirmAction(title, message, onConfirm, confirmLabel = 'Reset', cancelLabel = 'Cancel') {
+    // Remove any existing modal
+    document.querySelectorAll('.confirm-backdrop').forEach(b => b.remove());
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'confirm-backdrop';
+    backdrop.innerHTML = `
+        <div class="confirm-dialog" role="dialog" aria-modal="true">
+            <h3>${title}</h3>
+            <p>${message}</p>
+            <div class="confirm-buttons">
+                <button class="sim-btn" data-action="cancel">${cancelLabel}</button>
+                <button class="sim-btn danger" data-action="confirm">${confirmLabel}</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    function close() { backdrop.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+        else if (e.key === 'Enter') { e.preventDefault(); close(); onConfirm(); }
+    }
+    document.addEventListener('keydown', onKey);
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) close(); // click outside dialog
+    });
+    backdrop.querySelector('[data-action="cancel"]').addEventListener('click', close);
+    backdrop.querySelector('[data-action="confirm"]').addEventListener('click', () => {
+        close();
+        onConfirm();
+    });
+
+    // Focus the confirm button so Enter immediately confirms
+    backdrop.querySelector('[data-action="confirm"]').focus();
+}
+
+// ============================================================
 // SANDBOX SIMULATOR
 // ============================================================
 
@@ -156,7 +198,18 @@ function initSandbox() {
     document.getElementById('sandbox-step-btn').addEventListener('click', () => sandboxStep());
     document.getElementById('sandbox-undo-btn').addEventListener('click', () => sandboxUndo());
     document.getElementById('sandbox-runall-btn').addEventListener('click', () => sandboxRunAll());
-    document.getElementById('sandbox-reset-btn').addEventListener('click', () => sandboxReset());
+    document.getElementById('sandbox-reset-btn').addEventListener('click', () => {
+        // Only prompt if there's progress to lose
+        if (sandboxStepCount > 0 || sandboxUndoStack.length > 0) {
+            confirmAction(
+                'Reset Sandbox?',
+                'This will clear all register values, flags, memory, and step history. Your code in the editor will be kept and reloaded. This cannot be undone.',
+                () => sandboxReset()
+            );
+        } else {
+            sandboxReset();
+        }
+    });
 
     // Format toggle
     document.querySelectorAll('.sandbox-right .format-btn').forEach(btn => {
@@ -2428,7 +2481,20 @@ function initStackPlayground() {
         });
     }
 
-    document.getElementById('sp-reset').addEventListener('click', () => reset());
+    document.getElementById('sp-reset').addEventListener('click', () => {
+        // Only prompt if there's progress to lose (non-empty stack or mutated regs)
+        const hasProgress = state && (state.stack.length > 0 || state.ebp !== 0 || undoStack.length > 0 ||
+            Object.values(state.regs).some(v => v !== 0));
+        if (hasProgress) {
+            confirmAction(
+                'Reset Stack Playground?',
+                'This will clear the stack, reset ESP and EBP, zero all registers, and erase your action history. This cannot be undone.',
+                () => reset()
+            );
+        } else {
+            reset();
+        }
+    });
     const undoBtn = document.getElementById('sp-undo');
     if (undoBtn) undoBtn.addEventListener('click', () => undo());
 
