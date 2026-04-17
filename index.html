@@ -224,6 +224,7 @@ Examples:
                                 <option value="32" selected>32-bit (EAX, EBX..)</option>
                             </select>
                         </label>
+                        <span id="sandbox-save-status" style="font-size:0.75rem;color:var(--text-dim);margin-left:0.5rem"></span>
                     </div>
                     <!-- Execution trace -->
                     <div id="sandbox-trace" class="sandbox-trace"></div>
@@ -3954,6 +3955,19 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
         </section>
 
     </main>
+
+    <!-- Global Search Palette (opens with Ctrl+K or Cmd+K) -->
+    <div id="search-palette" class="search-palette hidden">
+        <div class="search-palette-dialog" role="dialog" aria-modal="true" aria-label="Search">
+            <input type="text" id="search-palette-input" placeholder="Search sections, instructions, tools..." autocomplete="off" spellcheck="false">
+            <div id="search-palette-results" class="search-palette-results"></div>
+            <div class="search-palette-hint">
+                <span><kbd>&uarr;</kbd> <kbd>&darr;</kbd> navigate</span>
+                <span><kbd>Enter</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+            </div>
+        </div>
+    </div>
 
     <script src="simulator.js"></script>
     <script src="app.js"></script>

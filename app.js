@@ -86,7 +86,246 @@ document.addEventListener('DOMContentLoaded', () => {
     initAddressCalc();
     initQuiz();
     initStackPlayground();
+    initCopyButtons();
+    initSearchPalette();
 });
+
+// ============================================================
+// GLOBAL SEARCH PALETTE (Ctrl+K / Cmd+K)
+// ============================================================
+
+function initSearchPalette() {
+    const palette = document.getElementById('search-palette');
+    const input = document.getElementById('search-palette-input');
+    const resultsEl = document.getElementById('search-palette-results');
+    if (!palette || !input || !resultsEl) return;
+
+    // Build a search index from: sidebar sections + REF_DATA instructions + concept-box headings
+    const index = buildSearchIndex();
+    let activeIdx = 0;
+    let currentResults = [];
+
+    function open() {
+        palette.classList.remove('hidden');
+        input.value = '';
+        activeIdx = 0;
+        renderResults('');
+        setTimeout(() => input.focus(), 0);
+    }
+    function close() {
+        palette.classList.add('hidden');
+    }
+
+    function highlightMatch(text, query) {
+        if (!query) return escHtmlSafe(text);
+        const lower = text.toLowerCase();
+        const q = query.toLowerCase();
+        const i = lower.indexOf(q);
+        if (i === -1) return escHtmlSafe(text);
+        return escHtmlSafe(text.slice(0, i)) + '<mark>' + escHtmlSafe(text.slice(i, i + query.length)) + '</mark>' + escHtmlSafe(text.slice(i + query.length));
+    }
+
+    function scoreMatch(item, query) {
+        if (!query) return 0;
+        const q = query.toLowerCase();
+        const name = item.name.toLowerCase();
+        const desc = (item.desc || '').toLowerCase();
+        if (name === q) return 1000;
+        if (name.startsWith(q)) return 500;
+        const nIdx = name.indexOf(q);
+        if (nIdx !== -1) return 200 - nIdx;
+        if (desc.includes(q)) return 50;
+        return 0;
+    }
+
+    function renderResults(query) {
+        if (!query.trim()) {
+            resultsEl.innerHTML = '';
+            currentResults = [];
+            return;
+        }
+        const ranked = index
+            .map(item => ({ item, score: scoreMatch(item, query) }))
+            .filter(r => r.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20)
+            .map(r => r.item);
+        currentResults = ranked;
+        if (ranked.length === 0) {
+            resultsEl.innerHTML = '<div class="search-no-results">No results for "' + escHtmlSafe(query) + '"</div>';
+            return;
+        }
+        activeIdx = 0;
+        resultsEl.innerHTML = ranked.map((item, i) => {
+            const descHtml = item.desc ? `<span class="sr-desc">${highlightMatch(item.desc.slice(0, 80) + (item.desc.length > 80 ? '…' : ''), query)}</span>` : '';
+            return `<div class="search-result${i === 0 ? ' active' : ''}" data-idx="${i}">
+                <span class="sr-type">${item.type}</span>
+                <span class="sr-name">${highlightMatch(item.name, query)}</span>
+                ${descHtml}
+            </div>`;
+        }).join('');
+        resultsEl.querySelectorAll('.search-result').forEach(el => {
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.dataset.idx);
+                selectResult(currentResults[idx]);
+            });
+            el.addEventListener('mouseenter', () => {
+                resultsEl.querySelectorAll('.search-result').forEach(r => r.classList.remove('active'));
+                el.classList.add('active');
+                activeIdx = parseInt(el.dataset.idx);
+            });
+        });
+    }
+
+    function selectResult(item) {
+        if (!item) return;
+        close();
+        if (typeof navigate === 'function' && item.section) {
+            navigate(item.section);
+            // For instruction results, highlight the Instruction Reference with the query
+            if (item.type === 'instruction') {
+                setTimeout(() => {
+                    const ref = document.getElementById('ref-search');
+                    if (ref) {
+                        ref.value = item.name.split(/\s|,|\//)[0];
+                        ref.dispatchEvent(new Event('input'));
+                    }
+                }, 100);
+            }
+        }
+    }
+
+    function moveActive(delta) {
+        if (currentResults.length === 0) return;
+        activeIdx = (activeIdx + delta + currentResults.length) % currentResults.length;
+        resultsEl.querySelectorAll('.search-result').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.idx) === activeIdx);
+        });
+        const activeEl = resultsEl.querySelector('.search-result.active');
+        if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Global Ctrl+K / Cmd+K to open
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            open();
+            return;
+        }
+        if (!palette.classList.contains('hidden')) {
+            if (e.key === 'Escape') { e.preventDefault(); close(); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                selectResult(currentResults[activeIdx]);
+            }
+        }
+    });
+
+    // Click outside dialog to close
+    palette.addEventListener('click', (e) => {
+        if (e.target === palette) close();
+    });
+
+    // Search on input
+    input.addEventListener('input', () => renderResults(input.value));
+}
+
+function buildSearchIndex() {
+    const items = [];
+
+    // 1. Sidebar sections (tutorials + tools + simulators)
+    document.querySelectorAll('#nav-list a.nav-link').forEach(a => {
+        const section = a.dataset.section;
+        const name = a.textContent.trim();
+        // Classify by section ID
+        let type = 'page';
+        if (section.startsWith('learn-')) type = 'tutorial';
+        else if (['sandbox','quiz','stack-playground'].includes(section)) type = 'tool';
+        else if (['reference','number-converter','bitwise-calc','endianness','ascii-table','flags-calc','address-calc'].includes(section)) type = 'tool';
+        items.push({ type, name, section, desc: '' });
+    });
+
+    // 2. Every instruction from REF_DATA
+    if (typeof REF_DATA !== 'undefined') {
+        REF_DATA.forEach(cat => {
+            cat.entries.forEach(entry => {
+                items.push({
+                    type: 'instruction',
+                    name: entry.name,
+                    section: 'reference',
+                    desc: entry.desc || '',
+                });
+            });
+        });
+    }
+
+    // 3. Concept headings within tutorial sections (h3 inside .concept-box inside learn-* sections)
+    document.querySelectorAll('section[id^="learn-"] .concept-box > h3, section[id^="learn-"] .practice-box > h3').forEach(h3 => {
+        const section = h3.closest('section').id;
+        const sectionName = document.querySelector(`#nav-list a[data-section="${section}"]`)?.textContent.trim() || section;
+        items.push({
+            type: 'concept',
+            name: h3.textContent.trim(),
+            section,
+            desc: 'in ' + sectionName,
+        });
+    });
+
+    return items;
+}
+
+function escHtmlSafe(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============================================================
+// COPY-TO-CLIPBOARD on code blocks
+// ============================================================
+
+function initCopyButtons() {
+    document.querySelectorAll('pre.code-block').forEach(pre => {
+        // Skip if already wrapped
+        if (pre.parentElement && pre.parentElement.classList.contains('code-wrap')) return;
+
+        // Wrap the pre in a positioning container
+        const wrap = document.createElement('div');
+        wrap.className = 'code-wrap';
+        pre.parentNode.insertBefore(wrap, pre);
+        wrap.appendChild(pre);
+
+        // Add copy button
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.type = 'button';
+        btn.textContent = 'Copy';
+        btn.setAttribute('aria-label', 'Copy code to clipboard');
+        btn.addEventListener('click', async () => {
+            const text = pre.textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (err) {
+                // Fallback for older browsers / insecure contexts
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.top = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (_) {}
+                document.body.removeChild(ta);
+            }
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 1500);
+        });
+        wrap.appendChild(btn);
+    });
+}
 
 // ============================================================
 // CONFIRMATION MODAL
@@ -225,8 +464,10 @@ function initSandbox() {
     document.getElementById('sandbox-load').addEventListener('click', () => {
         const ex = document.getElementById('sandbox-examples').value;
         if (!ex) return;
-        document.getElementById('sandbox-code').value = SANDBOX_EXAMPLES[ex] || '';
+        const codeEl = document.getElementById('sandbox-code');
+        codeEl.value = SANDBOX_EXAMPLES[ex] || '';
         document.getElementById('sandbox-examples').value = '';
+        sandboxSaveCode(); // persist example
     });
 
     // Reference panel collapse/expand
@@ -238,6 +479,43 @@ function initSandbox() {
             srefToggle.textContent = collapsed ? 'Expand' : 'Collapse';
         });
     }
+
+    // Auto-save sandbox code to localStorage (debounced)
+    const codeEl = document.getElementById('sandbox-code');
+    if (codeEl) {
+        // Restore saved code on load
+        const saved = localStorage.getItem('sandboxCode');
+        if (saved !== null && saved !== '') {
+            codeEl.value = saved;
+            sandboxShowSaveStatus('Restored from last session');
+        }
+        // Save on every input, debounced
+        let saveTimer = null;
+        codeEl.addEventListener('input', () => {
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(sandboxSaveCode, 400);
+        });
+    }
+}
+
+function sandboxSaveCode() {
+    const codeEl = document.getElementById('sandbox-code');
+    if (!codeEl) return;
+    try {
+        localStorage.setItem('sandboxCode', codeEl.value);
+        sandboxShowSaveStatus('Saved');
+    } catch (err) {
+        sandboxShowSaveStatus('Save failed', true);
+    }
+}
+
+function sandboxShowSaveStatus(text, isError) {
+    const el = document.getElementById('sandbox-save-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+    clearTimeout(sandboxShowSaveStatus._t);
+    sandboxShowSaveStatus._t = setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
 const SANDBOX_EXAMPLES = {
