@@ -95,11 +95,66 @@ document.addEventListener('DOMContentLoaded', () => {
 let sandboxSim = new AsmSimulator();
 let sandboxFmt = 'dec';
 let sandboxStepCount = 0;
+let sandboxUndoStack = []; // snapshots for undo
 const SANDBOX_MAX_STEPS = 10000; // infinite loop protection
+const SANDBOX_UNDO_LIMIT = 200; // cap memory usage
+
+function sandboxSnapshot() {
+    sandboxUndoStack.push({
+        pc: sandboxSim.pc,
+        stepCount: sandboxStepCount,
+        regs: { ...sandboxSim.regs },
+        flags: { ...sandboxSim.flags },
+        mem: { ...sandboxSim.mem },
+        changed: new Set(sandboxSim.changed),
+        changedMem: new Set(sandboxSim.changedMem),
+        jumpTarget: sandboxSim.jumpTarget,
+    });
+    if (sandboxUndoStack.length > SANDBOX_UNDO_LIMIT) sandboxUndoStack.shift();
+    sandboxUpdateUndoBtn();
+}
+
+function sandboxUndo() {
+    if (sandboxUndoStack.length === 0) return;
+    const snap = sandboxUndoStack.pop();
+    sandboxSim.pc = snap.pc;
+    sandboxStepCount = snap.stepCount;
+    sandboxSim.regs = { ...snap.regs };
+    sandboxSim.flags = { ...snap.flags };
+    sandboxSim.mem = { ...snap.mem };
+    sandboxSim.changed = new Set(snap.changed);
+    sandboxSim.changedMem = new Set(snap.changedMem);
+    sandboxSim.jumpTarget = snap.jumpTarget;
+
+    // Re-render trace row highlighting
+    const rows = document.querySelectorAll('#sandbox-trace .mini-inst');
+    rows.forEach((r, i) => {
+        r.classList.remove('current', 'executed', 'error');
+        const resultEl = r.querySelector('.mini-result');
+        if (resultEl) resultEl.textContent = '';
+        if (i < sandboxSim.pc) r.classList.add('executed');
+        if (i === sandboxSim.pc) r.classList.add('current');
+    });
+    rows[sandboxSim.pc]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    sandboxUpdateRegs();
+    sandboxUpdateExplain(`<span style="color:var(--text-dim)">Undid last step. Step back to PC ${sandboxSim.pc}.</span>`);
+    sandboxUpdateUndoBtn();
+
+    // Re-enable step/runall if we went back from "finished" state
+    document.getElementById('sandbox-step-btn').disabled = sandboxSim.pc >= sandboxSim.lines.length;
+    document.getElementById('sandbox-runall-btn').disabled = sandboxSim.pc >= sandboxSim.lines.length;
+}
+
+function sandboxUpdateUndoBtn() {
+    const btn = document.getElementById('sandbox-undo-btn');
+    if (btn) btn.disabled = sandboxUndoStack.length === 0;
+}
 
 function initSandbox() {
     document.getElementById('sandbox-run-btn').addEventListener('click', () => sandboxLoad());
     document.getElementById('sandbox-step-btn').addEventListener('click', () => sandboxStep());
+    document.getElementById('sandbox-undo-btn').addEventListener('click', () => sandboxUndo());
     document.getElementById('sandbox-runall-btn').addEventListener('click', () => sandboxRunAll());
     document.getElementById('sandbox-reset-btn').addEventListener('click', () => sandboxReset());
 
@@ -373,6 +428,8 @@ function sandboxLoad() {
     sandboxSim = new AsmSimulator();
     sandboxSim.loadProgram(code);
     sandboxStepCount = 0;
+    sandboxUndoStack = [];
+    sandboxUpdateUndoBtn();
 
     // Build trace UI showing ALL lines (including labels and comments)
     const trace = document.getElementById('sandbox-trace');
@@ -410,6 +467,9 @@ function sandboxStep() {
         document.getElementById('sandbox-runall-btn').disabled = true;
         return;
     }
+
+    // Snapshot state before executing so Undo can restore
+    sandboxSnapshot();
 
     const result = sandboxSim.step();
     if (!result) return;
@@ -478,6 +538,8 @@ function sandboxReset() {
     sandboxSim = new AsmSimulator();
     sandboxSim.loadProgram(code);
     sandboxStepCount = 0;
+    sandboxUndoStack = [];
+    sandboxUpdateUndoBtn();
 
     const rows = document.querySelectorAll('#sandbox-trace .mini-inst');
     rows.forEach((r, i) => {
@@ -1563,6 +1625,49 @@ function initStackPlayground() {
     let state = null;
     let lastExplain = null;
     let changedRegs = new Set();
+    let undoStack = []; // snapshots of state for undo
+    const UNDO_LIMIT = 200;
+
+    function snapshotState() {
+        undoStack.push({
+            esp: state.esp,
+            ebp: state.ebp,
+            pc: state.pc,
+            stack: state.stack.map(c => ({ ...c })),
+            regs: { ...state.regs },
+            callStack: state.callStack.slice(),
+            frames: state.frames.map(f => ({ ...f })),
+            nextFrameId: state.nextFrameId,
+            log: state.log.slice(),
+            lastExplain: lastExplain,
+        });
+        if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+        updateUndoBtn();
+    }
+
+    function undo() {
+        if (undoStack.length === 0) return;
+        const snap = undoStack.pop();
+        state.esp = snap.esp;
+        state.ebp = snap.ebp;
+        state.pc = snap.pc;
+        state.stack = snap.stack.map(c => ({ ...c }));
+        state.regs = { ...snap.regs };
+        state.callStack = snap.callStack.slice();
+        state.frames = snap.frames.map(f => ({ ...f }));
+        state.nextFrameId = snap.nextFrameId;
+        state.log = snap.log.slice();
+        lastExplain = snap.lastExplain;
+        changedRegs = new Set();
+        render();
+        setExplain('(undo)', '<span style="color:var(--text-dim)">Reverted the last action. ESP, EBP, stack, and registers restored.</span>');
+        updateUndoBtn();
+    }
+
+    function updateUndoBtn() {
+        const btn = document.getElementById('sp-undo');
+        if (btn) btn.disabled = undoStack.length === 0;
+    }
 
     function reset() {
         state = {
@@ -1580,6 +1685,8 @@ function initStackPlayground() {
         };
         lastExplain = null;
         changedRegs = new Set();
+        undoStack = [];
+        updateUndoBtn();
         render();
         setExplain(null, null);
     }
@@ -2230,6 +2337,9 @@ function initStackPlayground() {
     document.querySelectorAll('#sp-mode-explore .sp-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const action = btn.dataset.action;
+            // Snapshot state before any mutation so Undo can restore
+            // (skip for invalid input that bails out below — we check again inside each case)
+            snapshotState();
             let explain = null;
             switch (action) {
                 case 'push': {
@@ -2319,6 +2429,8 @@ function initStackPlayground() {
     }
 
     document.getElementById('sp-reset').addEventListener('click', () => reset());
+    const undoBtn = document.getElementById('sp-undo');
+    if (undoBtn) undoBtn.addEventListener('click', () => undo());
 
     const scenarios = {
         empty: () => { reset(); },
