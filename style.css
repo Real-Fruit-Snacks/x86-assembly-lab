@@ -127,6 +127,42 @@ li { margin-bottom: 0.25rem; }
 .sidebar-header h2 { font-size: 1.05rem; color: var(--accent); }
 .sidebar-header .subtitle { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
 
+.sidebar-search-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: calc(100% - 1.6rem);
+    margin: 0.7rem 0.8rem 0.3rem;
+    padding: 0.45rem 0.7rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.sidebar-search-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-dim);
+    color: var(--text);
+}
+.sidebar-search-label { opacity: 0.85; }
+.sidebar-search-kbd {
+    display: inline-flex;
+    gap: 0.15rem;
+}
+.sidebar-search-kbd kbd {
+    background: var(--surface0);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.02rem 0.32rem;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+}
+
 #nav-list { list-style: none; padding: 0.5rem 0; }
 .nav-group-label {
     padding: 0.7rem 1rem 0.25rem;

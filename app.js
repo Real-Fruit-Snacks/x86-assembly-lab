@@ -230,6 +230,10 @@ function initSearchPalette() {
 
     // Search on input
     input.addEventListener('input', () => renderResults(input.value));
+
+    // Sidebar search button opens the palette too
+    const sidebarBtn = document.getElementById('sidebar-search-btn');
+    if (sidebarBtn) sidebarBtn.addEventListener('click', open);
 }
 
 function buildSearchIndex() {
