@@ -1,258 +1,133 @@
-<div align="center">
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-light.svg">
-  <img alt="x86 Assembly Learning Lab" src="docs/assets/logo-dark.svg" width="520">
+  <img alt="x86 Assembly Learning Lab" src="docs/assets/logo-dark.svg" width="100%">
 </picture>
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
-![Theme](https://img.shields.io/badge/theme-Catppuccin%20Mocha-cba6f7)
-![Platform](https://img.shields.io/badge/platform-Browser-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+> [!IMPORTANT]
+> **Interactive x86 assembly simulator and learning lab.** A complete browser-based environment for learning x86 assembly from scratch — step-through simulator, visual stack playground with nested frame tracking, register quiz game, 23 tutorial sections, and 7 interactive tools. No backend, no build step, no dependencies.
 
-**Interactive x86 assembly simulator and learning lab**
-
-A complete browser-based environment for learning x86 assembly from scratch: step-through simulator, visual
-stack playground with nested frame tracking, register quiz game, 23 tutorial sections covering fundamentals
-through advanced topics (pointers, calling conventions, structs, floating point, and more), and 7 interactive
-tools (instruction reference, number converter, bitwise calculator, endianness guide, ASCII table, flags
-calculator, address calculator). No backend, no build step, no dependencies.
-
-</div>
+> *Reading assembly is easier when you can step it. Felt fitting for a single-file lab that runs the engine in your browser tab.*
 
 ---
 
-## Quick Start
+## §1 / Premise
 
-### GitHub Pages
+A self-contained x86 assembly classroom. Paste any x86 listing into the sandbox and step through it — registers, flags, byte-addressable memory, and the stack update in real time with DEC/HEX/BIN displays. The stack playground has four modes (Explore, Step-Through, Puzzle, Errors) and tracks nested frames with color-coded borders and a `main → caller → current` call-chain overview.
 
-Visit the live site: **https://Real-Fruit-Snacks.github.io/x86-assembly-lab/**
+A register quiz game generates random problems across three difficulty levels with scoring, streaks, and best-record memory. Twenty-three tutorial sections cover fundamentals through advanced topics — calling conventions, structs, floating point, dynamic memory — each with mini-simulators and practice challenges.
 
-### Run Locally
+▶ **[Live demo](https://Real-Fruit-Snacks.github.io/x86-assembly-lab/)**
 
-No build step, no dependencies. Open the HTML file directly or serve it:
+---
+
+## §2 / Specs
+
+| KEY        | VALUE                                                                       |
+|------------|-----------------------------------------------------------------------------|
+| SIMULATOR  | EAX–EDX with sub-registers (AL/AH/AX) · ESI · EDI · EBP · ESP · ZF/CF/SF/OF |
+| INSTRUCTIONS | MOV(SX/ZX), arithmetic, bitwise, shifts, MUL/IMUL/DIV/IDIV/CDQ, stack/branch/call/ret |
+| TUTORIALS  | **23 sections** · 23+ interactive mini-simulators · before/after snapshots  |
+| TOOLS      | **7 interactive** · instruction reference · number / bitwise / endianness · ASCII · flags · address calc |
+| STACK MODES | Explore · Step-Through · Puzzle · Errors                                   |
+| TESTS      | **710 automated** (correctness + fuzz + scenario verification)              |
+| THEME      | **Catppuccin Mocha** with custom scrollbars                                 |
+| STACK      | **Vanilla** HTML/CSS/JS · no framework, no build, no dependencies · MIT     |
+
+Architecture in §5 below.
+
+---
+
+## §3 / Quickstart
 
 ```bash
-# Option 1: Open directly
+git clone https://github.com/Real-Fruit-Snacks/x86-assembly-lab.git
+cd x86-assembly-lab
+
+# Option 1 — open directly
 open index.html
 
-# Option 2: Local server
+# Option 2 — local server
 python -m http.server 3456
 # → http://localhost:3456
 
-# Option 3: Node
+# Option 3 — Node
 npx serve . -l 3456
 ```
 
 ---
 
-## Features
-
-### Sandbox Simulator
-
-Paste any x86 assembly and step through it. Full support for labels, branches, loops, function calls, memory operations, and IDA-style notation. Registers, flags, and memory update in real time with DEC/HEX/BIN display modes. 24 built-in examples organized by category with teaching comments.
+## §4 / Reference
 
 ```
-Supported instructions:
+SUPPORTED INSTRUCTIONS
+
   MOV, MOVSX, MOVZX, ADD, SUB, INC, DEC, NEG, XCHG, LEA
   AND, OR, XOR, NOT, TEST, CMP
   SHL, SHR, SAR, ROL, ROR, MUL, IMUL, DIV, IDIV, CDQ
   PUSH, POP, CALL, RET, LEAVE, NOP
   JMP, JE, JNE, JB, JBE, JA, JAE, JL, JLE, JG, JGE
   (+ all aliases: JZ, JNZ, JNA, JNBE, SAL, RETN, etc.)
+
+INPUT FORMATS
+
+  Decimal       mov eax, 42         mov eax, -5
+  Hex (0x)      mov eax, 0xFF       mov eax, -0xFF
+  Hex (IDA)     mov eax, 0FFh       mov eax, 0Ch
+  Binary        mov al, 0b11001100  mov al, 11001100b
+  Character     mov al, 'A'
+  IDA vars      mov eax, [ebp+var_4]
+  IDA args      mov eax, [ebp+arg_0]
+  Memory        mov dword ptr [ebp-8], 45
+
+REGISTER QUIZ
+
+  Easy   (1 pt)   2-4 instructions, MOV/ADD/SUB/INC/DEC/NEG/XCHG
+  Medium (2 pt)  4-6 instructions, adds MUL/DIV/shifts/AND/OR/XOR/NOT
+  Hard   (3 pt)  6-10 instructions, chained IMUL/DIV/remainder tracking
+
+STACK PLAYGROUND MODES
+
+  Explore         7 action buttons + 6 preset scenarios + free EXECUTE
+  Step-Through    5 guided walkthroughs (call, prologue/epilogue, args, locals, LIFO)
+  Puzzle          Random stack-state predictions with scoring + streaks
+  Errors          6 common stack bugs explained step-by-step
+
+INTERACTIVE TOOLS
+
+  Instruction Reference   Searchable lookup with flag behavior, examples
+  Number Converter        DEC ↔ HEX ↔ BIN, signed/unsigned, boundary table
+  Bitwise Calculator      AND/OR/XOR/NOT with truth tables, color-coded bits
+  Endianness Guide        Interactive byte-order explorer
+  ASCII Table             128-character clickable grid (char/dec/hex)
+  Flags Calculator        Operation + values → all flags + jump verdicts
+  Address Calculator      Effective address math + EBP frame-offset helper
 ```
-
-A searchable always-visible reference panel below the code explains every register and flag.
-
-### Stack Playground
-
-Four modes for learning how the stack actually works, with full support for nested function calls and frame-relative labels.
-
-```
-Explore       Visual stack with 7 action buttons (PUSH, POP, CALL, RET,
-              PROLOGUE, ALLOC, LEAVE), 6 preset scenarios, quick-try chips,
-              key-facts card, and an EXECUTE input that accepts any x86
-              instruction from the sandbox
-
-Step-Through  5 guided walkthroughs (full function call, prologue/epilogue,
-              reading arguments, locals, LIFO) with prev/next navigation,
-              progress bar, and per-step explanations
-
-Puzzle        Random stack-state prediction puzzles with scoring and
-              streak tracking
-
-Errors        6 common stack bugs explained step-by-step (unbalanced POP,
-              missing prologue, missing caller cleanup, RET without return
-              address, LEAVE without frame, stack overflow)
-```
-
-Each cell is automatically labeled with its frame-relative `[ebp±N]` address and semantic meaning ("arg 2", "saved EBP", "return address", "local 1"). Nested call frames are visually separated with color-coded borders (current=blue, caller=mauve, deeper=green/peach/teal) and an always-visible call chain overview: `main → Stack1 → Stack2 (current)`. Values that look negative in two's complement display in signed form (e.g. `-5 (4294967291)`).
-
-### Register Quiz
-
-Game-ified practice with three difficulty levels. Random problems, scoring, streak tracking, best-record memory, and a per-question timer. Every answer accepted in decimal, hex (`0x...` or `...h`), or negative form.
-
-```
-Easy (1 pt)    2-4 instructions, MOV/ADD/SUB/INC/DEC/NEG/XCHG
-Medium (2 pt)  4-6 instructions, adds MUL/DIV/shifts/AND/OR/XOR/NOT
-Hard (3 pt)    6-10 instructions, chained IMUL/DIV/remainder tracking
-```
-
-### Input Format Support
-
-Multiple number and notation formats accepted across all inputs:
-
-```
-Decimal:     mov eax, 42         mov eax, -5
-Hex (0x):    mov eax, 0xFF       mov eax, -0xFF
-Hex (IDA):   mov eax, 0FFh       mov eax, 0Ch
-Binary:      mov al, 0b11001100  mov al, 11001100b
-Character:   mov al, 'A'
-IDA vars:    mov eax, [ebp+var_4]
-IDA args:    mov eax, [ebp+arg_0]
-Memory:      mov dword ptr [ebp-8], 45
-```
-
-### Typo Correction
-
-Detects misspellings, English-word equivalents, and near-misses with suggestions:
-
-```
-"move eax, 10"    → Did you mean "mov"?
-"subtract eax, 5" → Did you mean "sub"?
-"swap eax, ebx"   → Did you mean "xchg"?
-"xhcg eax, ebx"   → Did you mean "xchg"?  (fuzzy match via edit distance)
-```
-
-Missing operands and invalid registers produce clear error messages with usage examples.
-
-### Tutorials
-
-Twenty-three learning sections with 23+ interactive mini-simulators, before/after register snapshots, step-by-step walkthroughs, practice challenges, and plain-English reference tables. All technical jargon (cdecl, IDA Pro, DWORD, etc.) is defined inline on first use.
-
-```
-Fundamentals:
-  - Register Map        Complete sub-register diagram, plain-English implicit-use table
-  - Two's Complement    Step-by-step negation, ranges, key patterns
-  - Flags               Worked CMP walkthrough, OF deep dive, concrete flag tracing
-  - Memory & Data Sizes Brackets vs no-brackets walkthrough, scaled array addressing
-
-Instructions:
-  - Arithmetic          MOV, ADD, SUB, INC, DEC, NEG, XCHG
-  - Bitwise Logic       AND, OR, XOR, NOT, TEST with binary visualization
-  - Multiply & Divide   EDX:EAX visual diagram, cheat sheet, before/after snapshots,
-                         common mistakes, 4 mini-sims, 3 practice challenges
-  - Shifts              SHL, SHR, SAR with negative-number SAR vs SHR comparison
-  - Branching           Worked branch trace, signed vs unsigned JA/JG comparison,
-                         plain-English jump table with memory aids
-  - Stack & Functions   PUSH/POP LIFO walkthrough, full 9-step CALL sequence table
-  - Common Idioms       XOR zeroing, LEA math breakdown, cdecl cleanup formula
-
-Analysis:
-  - Functional Analysis How to read a function and describe it as f(a,b) = ...
-  - Control Structures  If/else, loops, switch statements, jump tables
-
-Advanced:
-  - Extension Instr.    MOVSX/MOVZX sign vs zero extension, CBW/CWD/CDQ cheat sheet
-  - Pointers            Read/write/double-deref patterns, LEA vs MOV, pass by ref
-  - Variables & Scope   Local/argument/global/constant identification decision tree
-  - Calling Conventions cdecl/stdcall/fastcall/thiscall, volatile vs non-volatile regs
-  - Arrays              Index-based vs pointer-advancing patterns, string instructions
-  - Strings             ASCII/Unicode encoding, null-terminated patterns, hex decoding
-  - Structures          Struct field access patterns, heterogeneous offsets, stack structs
-  - Dynamic Memory      Stack vs heap, malloc/free patterns, Windows HeapAlloc API
-  - Floating Point      FPU stack (ST0-ST7), FLD/FST/FADD, IEEE 754 basics
-  - Misc Instructions   ROL/ROR rotation, INT 3 anti-debug, PUSHA/POPA packers
-```
-
-### Tools
-
-Seven interactive tools you can use while working on problems:
-
-```
-Instruction Reference  Searchable lookup with flag behavior, operand notation, examples
-Number Converter       Decimal ↔ Hex ↔ Binary, signed/unsigned, dynamic boundary table
-Bitwise Calculator     AND/OR/XOR/NOT with truth tables, color-coded bits, common uses
-Endianness Guide       Interactive byte-order explorer with step-by-step walkthrough
-ASCII Table            Clickable 128-character grid, bidirectional lookup (char/dec/hex)
-Flags Calculator       Enter an operation + values, see all flags + which jumps fire
-Address Calculator     Effective address math + stack frame offset calculator from EBP
-```
-
-### UI Polish
-
-- **Catppuccin Mocha theme** throughout, including custom scrollbars
-- **Collapsible sidebar** to expand working area; state persists across reloads
-- **Responsive layout** adapts down to mobile widths
-- **Visual walkthroughs** with before/after register snapshots, cheat sheet tables, and common mistakes sections
-- **Verbose step descriptions** (e.g. "unsigned divide: EDX:EAX / ecx = 17÷5 = 3 remainder 2. Good practice: EDX was zeroed first")
-- **Plain-English reference tables** -- every table has beginner-friendly columns, all jargon defined inline
 
 ---
 
-## Architecture
+## §5 / Architecture
 
 ```
-Assembly/
-├── index.html          # Single-page app with 34 sections
-├── style.css           # Catppuccin Mocha theme with custom scrollbars
-├── simulator.js        # x86 engine: registers, flags, memory, stack, branches
-├── app.js              # UI: sandbox, playground, quiz, mini-sims, tools
-├── docs/assets/        # Dark + light mode logo SVGs
-└── README.md
+.
+  index.html            Single-page app with 34 sections
+  style.css             Catppuccin Mocha theme + custom scrollbars
+  simulator.js          x86 engine: registers, flags, memory, stack, branches
+  app.js                UI: sandbox, playground, quiz, mini-sims, tools
+  docs/assets/          Dark + light logo SVGs
 ```
 
-Pure client-side HTML, CSS, and JavaScript. No framework, no build step, no dependencies. The simulator engine parses and executes x86 instructions directly in the browser with a register file, flag model, byte-addressable memory, label resolution, and branch evaluation.
+| Layer        | Implementation                                                  |
+|--------------|-----------------------------------------------------------------|
+| **Engine**   | Hand-rolled parser + evaluator over registers/flags/memory      |
+| **Frames**   | Per-frame EBP anchor · `argBoundary` cell assignment · frame-relative labels |
+| **IDA notation** | `var_N` → `[ebp-N]` · `arg_N` → `[ebp+N+8]` · hex with `h` suffix |
+| **UI**      | Vanilla DOM · responsive · sidebar collapses · state persists in localStorage |
+| **Tests**    | 507 correctness + 203 scenario verifications across all examples + scenarios |
+| **Deploy**   | Static · single repo · `index.html` + 3 sibling files           |
 
-### Simulator Capabilities
-
-| Feature | Implementation |
-|---------|---------------|
-| Registers | EAX-EDX with 8/16-bit sub-registers (AL/AH/AX), ESI, EDI, EBP, ESP |
-| Flags | ZF, CF, SF, OF with correct setting per instruction |
-| Memory | Byte-addressable read/write with BYTE/WORD/DWORD sizing |
-| Stack | ESP-based PUSH/POP backed by real memory |
-| Branches | Label resolution, all conditional jumps, nested loops |
-| Functions | CALL/RET with return address stack, LEAVE, nested calls |
-| Frame tracking | Per-frame EBP anchor, argBoundary-based cell assignment, frame-relative labels |
-| IDA Notation | `var_N` → `[ebp-N]`, `arg_N` → `[ebp+N+8]`, hex with `h` suffix |
-| Error Handling | Typo detection, operand validation, infinite loop protection (10K steps) |
+**Key patterns:** No framework. The simulator engine is a pure function from `(state, instruction)` to `state`, which makes step-through, puzzles, and tests share one source of truth. Every example, walkthrough, mini-sim, and quiz round runs through the same engine.
 
 ---
 
-## Test Coverage
-
-Automated test suite covering correctness, fuzz robustness, and every scenario/example end-to-end.
-
-### Correctness (507 tests)
-
-| Category | Tests |
-|----------|------:|
-| All 21 nav links + all 23 sandbox examples + every instruction type | 73 |
-| Register Quiz: 15 rounds × 3 difficulties + wrong answers + hex input | 53 |
-| Stack Playground all 4 modes: Explore, Step-Through, Puzzle, Errors | 96 |
-| Deep nesting (3+ levels), full unwind, complex execution scenarios | 16 |
-| Number Converter (8/16/32-bit), Bitwise Calc, Endianness, Reference search | 75 |
-| Fuzz: garbage input, rapid clicks, empty state, edge cases | 194 |
-
-### Scenario verification (203 tests)
-
-| Scenario type | Count | Verified |
-|--------------|------:|---------:|
-| Sandbox examples | 24 | 24 |
-| Explore mode scenarios | 6 | 6 |
-| Step-Through walkthroughs | 5 | 5 |
-| Error scenarios | 6 | 6 |
-| Puzzle generations | 30 | 30 |
-| Mini-simulators across tutorials | 24 | 24 |
-
-Every example, scenario, walkthrough, and mini-simulator has been verified to produce the expected register/stack state.
-
----
-
-## License
-
-[MIT](LICENSE) -- Copyright 2026 Real-Fruit-Snacks
+[License: MIT](LICENSE) · Part of [Real-Fruit-Snacks](https://github.com/Real-Fruit-Snacks) — building offensive security tools, one wave at a time.

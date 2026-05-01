@@ -1,13 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" fill="none">
-  <!-- Register icon centered -->
-  <rect x="172" y="4" width="56" height="56" rx="8" stroke="#0969da" stroke-width="2.5" fill="none"/>
-  <line x1="172" y1="32" x2="228" y2="32" stroke="#0969da" stroke-width="1.5" opacity="0.3"/>
-  <line x1="200" y1="4" x2="200" y2="60" stroke="#0969da" stroke-width="1.5" opacity="0.3"/>
-  <!-- Bits in cells -->
-  <text x="186" y="24" font-family="Consolas, monospace" font-size="14" fill="#1a7f37" text-anchor="middle" font-weight="700">1</text>
-  <text x="214" y="24" font-family="Consolas, monospace" font-size="14" fill="#656d76" text-anchor="middle" font-weight="700">0</text>
-  <text x="186" y="52" font-family="Consolas, monospace" font-size="14" fill="#656d76" text-anchor="middle" font-weight="700">0</text>
-  <text x="214" y="52" font-family="Consolas, monospace" font-size="14" fill="#1a7f37" text-anchor="middle" font-weight="700">1</text>
-  <!-- Title text centered below -->
-  <text x="200" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" fill="#1f2328" font-weight="700" text-anchor="middle">x86 Assembly Learning Lab</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <rect x="0" y="0" width="800" height="200" fill="#ffffff"/>
+  <line x1="0" y1="32" x2="800" y2="32" stroke="#bcc0cc" stroke-width="1"/>
+  <text x="20" y="22" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="10" font-weight="700" fill="#8839ef" letter-spacing="2">RFS</text>
+  <text x="60" y="22" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="10" font-weight="500" fill="#9ca0b0" letter-spacing="2">·  X86 ASSEMBLY LAB  ·  INTERACTIVE LEARNING</text>
+  <circle cx="676" cy="18" r="3" fill="#40a02b"/>
+  <text x="780" y="22" text-anchor="end" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="10" font-weight="500" fill="#6c6f85" letter-spacing="2">BROWSER · NO BUILD</text>
+  <text x="20" y="115" font-family="'Inter', sans-serif" font-size="76" font-weight="800" fill="#1e1e2e" letter-spacing="-3.5">X86-ASM-LAB<tspan fill="#209fb5">.</tspan></text>
+  <line x1="0" y1="140" x2="800" y2="140" stroke="#bcc0cc" stroke-width="1"/>
+  <line x1="200" y1="140" x2="200" y2="200" stroke="#bcc0cc" stroke-width="1"/>
+  <line x1="400" y1="140" x2="400" y2="200" stroke="#bcc0cc" stroke-width="1"/>
+  <line x1="600" y1="140" x2="600" y2="200" stroke="#bcc0cc" stroke-width="1"/>
+  <text x="20" y="158" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="9" font-weight="600" fill="#9ca0b0" letter-spacing="2">TUTORIALS</text>
+  <text x="20" y="186" font-family="'Inter', sans-serif" font-size="22" font-weight="700" fill="#1e1e2e" letter-spacing="-1">23<tspan fill="#209fb5" font-size="14"> SECTIONS</tspan></text>
+  <text x="220" y="158" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="9" font-weight="600" fill="#9ca0b0" letter-spacing="2">TOOLS</text>
+  <text x="220" y="186" font-family="'Inter', sans-serif" font-size="22" font-weight="700" fill="#1e1e2e" letter-spacing="-1">7<tspan fill="#209fb5" font-size="14"> · INTERACTIVE</tspan></text>
+  <text x="420" y="158" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="9" font-weight="600" fill="#9ca0b0" letter-spacing="2">TESTS</text>
+  <text x="420" y="186" font-family="'Inter', sans-serif" font-size="22" font-weight="700" fill="#1e1e2e" letter-spacing="-1">710<tspan fill="#209fb5" font-size="14"> · AUTOMATED</tspan></text>
+  <text x="620" y="158" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="9" font-weight="600" fill="#9ca0b0" letter-spacing="2">STACK</text>
+  <text x="620" y="186" font-family="'Inter', sans-serif" font-size="22" font-weight="700" fill="#1e1e2e" letter-spacing="-1">VANILLA<tspan fill="#209fb5" font-size="14"> · STATIC</tspan></text>
 </svg>
