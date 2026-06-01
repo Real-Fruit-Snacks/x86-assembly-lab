@@ -37,6 +37,7 @@
             <li class="nav-group-label">Analysis</li>
             <li><a href="#learn-func-analysis" class="nav-link" data-section="learn-func-analysis">Functional Analysis</a></li>
             <li><a href="#learn-control" class="nav-link" data-section="learn-control">Control Structures</a></li>
+            <li><a href="#learn-disasm-notation" class="nav-link" data-section="learn-disasm-notation">Reading Real Disassembly</a></li>
             <li class="nav-group-label">Advanced</li>
             <li><a href="#learn-extensions" class="nav-link" data-section="learn-extensions">Extension Instructions</a></li>
             <li><a href="#learn-pointers" class="nav-link" data-section="learn-pointers">Pointers</a></li>
@@ -99,7 +100,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
-                    <p>Functional Analysis (reading a function and summarizing it) and Control Structures (if/else, loops, switch/jump tables) in assembly.</p>
+                    <p>Functional Analysis (reading a function and summarizing it), Control Structures (if/else, loops, switch/jump tables), and Reading Real Disassembly (IDA/OllyDbg notation) in assembly.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
@@ -2444,6 +2445,97 @@ loop_done:</pre>
                     <li>Load the <strong>"CMP + conditional jump"</strong> example to see if/else</li>
                     <li>Load the <strong>"Loop (DEC + JNZ)"</strong> example to see a do-while loop</li>
                     <li>To practice, trace which branches are taken by tracking the variable values and flag states at each CMP/TEST</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Learn: Reading Real Disassembly -->
+        <section id="learn-disasm-notation" class="section">
+            <h1>Reading Real Disassembly</h1>
+            <p>Everywhere else in this lab, instructions are written in a clean, minimal form like <code>mov eax, [ebp-4]</code>. Real disassemblers &mdash; IDA Pro, OllyDbg, x64dbg, Ghidra &mdash; dress the <em>same</em> instructions up with extra notation: size hints, segment selectors, and addresses shown in hexadecimal. The CPU ignores most of that decoration; it is there to help <em>you</em> read. This page teaches you to see past it. The sandbox here now accepts the decorated form directly, so you can paste a real listing and step it.</p>
+
+            <div class="concept-box">
+                <h3>The Same Instruction, Two Ways</h3>
+                <p>These pairs do exactly the same thing. The right-hand column is what a disassembler actually prints:</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th>Clean form (used elsewhere in this lab)</th><th>Disassembler form (IDA / OllyDbg)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>mov eax, [ebp-4]</code></td><td><code>mov eax, dword ptr ss:[ebp-4]</code></td></tr>
+                        <tr><td><code>mov eax, [0x4030a0]</code></td><td><code>mov eax, dword ptr ds:[004030A0]</code></td></tr>
+                        <tr><td><code>dec [eax]</code></td><td><code>dec dword ptr ds:[eax]</code></td></tr>
+                    </tbody>
+                </table>
+                <p>Three kinds of decoration show up: a <strong>size hint</strong> (<code>dword ptr</code>), a <strong>segment selector</strong> (<code>ss:</code>, <code>ds:</code>), and addresses written in <strong>hex with no <code>0x</code></strong> (<code>004030A0</code>). We'll take them one at a time.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>1. Size hints: <code>byte / word / dword ptr</code></h3>
+                <p>When an instruction touches memory, the assembler must know <em>how many bytes</em> to move. If a register is involved, its size answers the question (<code>mov al, [esi]</code> is clearly one byte). But <code>mov dword ptr [esi], 1</code> needs the hint, because the immediate <code>1</code> could be a byte, a word, or a dword. Disassemblers print the hint everywhere for consistency, even when a register already makes it obvious.</p>
+                <ul>
+                    <li><code>byte ptr</code> &mdash; 1 byte (8 bits)</li>
+                    <li><code>word ptr</code> &mdash; 2 bytes (16 bits)</li>
+                    <li><code>dword ptr</code> &mdash; 4 bytes (32 bits)</li>
+                </ul>
+            </div>
+
+            <div class="concept-box">
+                <h3>2. Segment selectors: <code>ss:</code>, <code>ds:</code>, <code>fs:</code></h3>
+                <p>Early x86 split memory into <em>segments</em>: stack accesses went through <code>ss</code> (stack segment), general data through <code>ds</code> (data segment), and so on. On a modern flat-memory operating system those segments all describe the same address space, so for almost every instruction the selector is <strong>cosmetic</strong> &mdash; <code>ss:[ebp-4]</code> and <code>[ebp-4]</code> reach the same byte. The disassembler still prints it because it reflects the encoded prefix.</p>
+                <p>The selector worth remembering is <code>fs:</code> (and <code>gs:</code> on x64). On Windows, <code>fs:[0]</code> reaches the Thread Environment Block, and malware reads <code>fs:[30h]</code> to find the PEB &mdash; a real, non-cosmetic use you'll meet in OS internals. Because this simulator models one flat address space, it accepts the selector and then ignores it.</p>
+            </div>
+
+            <div class="mini-sim" data-code="mov ebp, 0x1000&#10;mov dword ptr ss:[ebp-4], 25&#10;mov eax, dword ptr ss:[ebp-4]&#10;add eax, 5">
+                <div class="mini-sim-header">
+                    <span>Try it: a local variable accessed through SS:[ebp-4]</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="concept-box">
+                <h3>3. Hex addresses without <code>0x</code></h3>
+                <p>Disassemblers print numbers in hexadecimal by default, usually with no <code>0x</code>. So <code>004030A0</code> means <code>0x004030A0</code> (the address of a global variable), and <code>0FFh</code> &mdash; trailing <code>h</code> &mdash; means <code>0xFF</code>. A leading zero is often added so a value doesn't begin with a letter (<code>0FFh</code>, not <code>FFh</code>).</p>
+                <p><strong>Watch the trap:</strong> one listing mixes bases. An absolute address like <code>004030A0</code> is hex, but a small stack offset such as <code>[ebp-4]</code> or <code>[ebp+8]</code> is usually decimal. When an offset uses a hex letter &mdash; <code>[ebp+C]</code> &mdash; it can only be hex, so <code>C</code> means 12. This lab follows that same rule: a token containing a hex letter is read as hex; a plain decimal stays decimal.</p>
+            </div>
+
+            <div class="mini-sim" data-code="mov dword ptr ds:[004030A0], 99&#10;mov eax, ds:[004030A0]">
+                <div class="mini-sim-header">
+                    <span>Try it: a global stored at a bare-hex address</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Putting It Together: a Function Prologue</h3>
+                <p>Here is the standard entry sequence a compiler emits at the top of a function, exactly as a disassembler would show it: save the old frame pointer, point <code>ebp</code> at the new frame, then carve out space for locals with <code>sub esp</code>. The two locals are then written through <code>ss:[ebp-4]</code> and <code>ss:[ebp-8]</code> &mdash; negative offsets from the frame pointer, the hallmark of a local variable.</p>
+            </div>
+
+            <div class="mini-sim" data-code="push ebp&#10;mov ebp, esp&#10;sub esp, 8&#10;mov dword ptr ss:[ebp-4], 10&#10;mov dword ptr ss:[ebp-8], 20">
+                <div class="mini-sim-header">
+                    <span>Try it: a function prologue in disassembler notation</span>
+                    <button class="sim-btn mini-step">Step</button>
+                    <button class="sim-btn danger mini-reset">Reset</button>
+                </div>
+                <div class="mini-sim-body"></div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Annotating as You Read</h3>
+                <p>The goal of reading disassembly is to recover the meaning the compiler discarded. A pair like <code>cmp eax, 0FFFFFFFFh</code> / <code>je loc_401050</code> is mechanical until you label it: if <code>eax</code> just held the return of <code>CreateFileW</code>, then <code>-1</code> (<code>0xFFFFFFFF</code>) is that call's failure value &mdash; so the branch is &ldquo;jump if CreateFile failed.&rdquo; Same bytes, but now they tell a story. Name variables and label branches by what they <em>mean</em>, not by their raw addresses.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice</h3>
+                <ul>
+                    <li>Rewrite <code>mov edx, dword ptr ss:[ebp-8]</code> in this lab's clean form. (Answer: <code>mov edx, [ebp-8]</code>.)</li>
+                    <li>What signed decimal is <code>0FFFFFFBFh</code>? Verify with the <a href="#number-converter">Number Converter</a>.</li>
+                    <li>In <code>mov eax, dword ptr ds:[004940D8]</code>, is <code>004940D8</code> a stack local or a global? (A global &mdash; it's an absolute address, not an <code>ebp</code>/<code>esp</code> offset.)</li>
+                    <li>Paste a few lines of a real OllyDbg or IDA listing into the <a href="#sandbox">Sandbox Simulator</a> and step through them.</li>
                 </ul>
             </div>
         </section>
