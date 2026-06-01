@@ -2167,3 +2167,21 @@ p { margin-bottom: 0.7rem; }
     border-radius: 5px; padding: 0.35rem 0.5rem; font-size: 0.85rem; font-family: var(--font-mono);
     min-width: 220px;
 }
+
+/* x64 Playground: ensure every input/select gets the dark field styling
+   (not just those inside .sp-action-row) */
+#sandbox64 input[type="text"],
+#sandbox64 select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.35rem 0.55rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+#sandbox64 input[type="text"]:focus,
+#sandbox64 select:focus { outline: none; border-color: var(--accent); }
+#sandbox64 input[type="text"]::placeholder { color: var(--text-dim); opacity: 0.55; }
+#sb64-exec { font-size: 0.88rem; }
