@@ -16,7 +16,7 @@ class AsmSimulator64 {
                        'r8','r9','r10','r11','r12','r13','r14','r15'];
         this.regs = {};
         names.forEach(n => this.regs[n] = 0n);
-        this.rspInit = 0x1000000n;            // 16 MB: clean, room to grow down
+        this.rspInit = 0x200000n;             // realistic high base; stack grows down
         this.regs.rsp = this.rspInit;
         this.flags = { ZF: 0, CF: 0, SF: 0, OF: 0 };
         this.mem = new Map();                 // BigInt addr -> byte (Number 0..255)
@@ -28,6 +28,24 @@ class AsmSimulator64 {
         this.changed = new Set();
         this.changedMem = new Set();
         this.finished = false;
+    }
+
+    // --- State snapshot / restore (for Undo in the interactive UI) ---
+    snapshot() {
+        return {
+            regs: Object.assign({}, this.regs),
+            flags: Object.assign({}, this.flags),
+            mem: new Map(this.mem),
+            shown: new Set(this.shown),
+        };
+    }
+    restore(s) {
+        this.regs = Object.assign({}, s.regs);
+        this.flags = Object.assign({}, s.flags);
+        this.mem = new Map(s.mem);
+        this.shown = new Set(s.shown);
+        this.changed = new Set();
+        this.changedMem = new Set();
     }
 
     // --- Program loading ---

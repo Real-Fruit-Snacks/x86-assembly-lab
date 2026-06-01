@@ -4344,8 +4344,8 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
 
         <!-- x64 Sandbox (64-bit engine) -->
         <section id="sandbox64" class="section">
-            <h1>x64 Sandbox <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; 64-bit simulator</span></h1>
-            <p>A true 64-bit register machine. Step real x86-64 code and watch all sixteen registers, the flags, and the stack update live. This runs on a separate engine from the 32-bit Sandbox, so 64-bit rules behave correctly &mdash; including a 32-bit write (like <code>mov eax, ...</code>) zeroing the upper half of the full register. New to the differences? Read <a href="#learn-x64">x64 Differences</a> first.</p>
+            <h1>x64 Playground <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; interactive 64-bit machine</span></h1>
+            <p>Drive a real 64-bit register machine with buttons &mdash; push and pop, call and return, build a stack frame, or run any single instruction &mdash; and watch all sixteen registers, the flags, the stack, and the call chain update live. This is a separate engine from the 32-bit tools, so 64-bit rules behave correctly (a 32-bit write like <code>mov eax, ...</code> zeroes the upper half of <code>RAX</code>). New to the differences? Read <a href="#learn-x64">x64 Differences</a> first.</p>
 
             <div class="sp-facts-card">
                 <div class="sp-facts-header">
@@ -4353,50 +4353,93 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
                     <button class="sim-btn" id="sb64-facts-toggle">Hide</button>
                 </div>
                 <div class="sp-facts-body" id="sb64-facts-body">
-                    <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>Registers grew E&rarr;R.</strong> <code>EAX</code> became <code>RAX</code> (64-bit). The old names still work and address the lower bits.</div></div>
-                    <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>A 32-bit write zeroes the upper half.</strong> <code>mov eax, 1</code> clears the top 32 bits of <code>RAX</code>. 16- and 8-bit writes preserve the rest.</div></div>
-                    <div class="sp-fact"><span class="sp-fact-num">3</span><div><strong>Eight new registers.</strong> <code>R8</code>&ndash;<code>R15</code>, with <code>R8D</code>/<code>R8W</code>/<code>R8B</code> for the lower 32/16/8 bits (no high-byte form).</div></div>
-                    <div class="sp-fact"><span class="sp-fact-num">4</span><div><strong>Args go in registers.</strong> Windows x64 passes the first four in <code>RCX, RDX, R8, R9</code>; the return value comes back in <code>RAX</code>.</div></div>
-                    <div class="sp-fact"><span class="sp-fact-num">5</span><div><strong>The stack is 8-byte.</strong> <code>PUSH</code>/<code>POP</code> move <code>RSP</code> by 8, and it still grows downward toward lower addresses.</div></div>
-                    <div class="sp-fact"><span class="sp-fact-num">6</span><div><strong>Same mnemonics &amp; flags.</strong> mov/add/xor/cmp/jcc/call/ret all behave as you learned in 32-bit. Phase 1 supports the core set (no mul/div or conversions yet).</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>The stack grows DOWNWARD.</strong> <code>PUSH</code> subtracts 8 from <code>RSP</code>, <code>POP</code> adds 8. Slots are 8 bytes wide in 64-bit.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>RSP points at the top of the stack</strong> &mdash; the lowest used address, shown at the visual top here.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">3</span><div><strong>RBP is the frame anchor.</strong> After the prologue, <code>[rbp-8]</code> is the first local and <code>[rbp+16]</code> the first stack argument.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">4</span><div><strong>CALL pushes the return address</strong> automatically; <code>RET</code> pops it. That is how a function returns to its caller.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">5</span><div><strong>A 32-bit write zeroes the upper half.</strong> <code>mov eax, 1</code> clears the top 32 bits of <code>RAX</code>; 16/8-bit writes preserve the rest.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">6</span><div><strong>Windows x64 args go in registers</strong> &mdash; <code>RCX, RDX, R8, R9</code> &mdash; and the return value comes back in <code>RAX</code>.</div></div>
                 </div>
+            </div>
+
+            <div class="sb64-scenario-row">
+                <span class="toolbar-label">Scenario:</span>
+                <select id="sb64-scenario">
+                    <option value="empty">Empty stack (start fresh)</option>
+                    <option value="pushed">Three values pushed</option>
+                    <option value="frame">Inside a function frame</option>
+                    <option value="callchain">Two calls deep (main &rarr; f &rarr; g)</option>
+                </select>
+                <button class="sim-btn" id="sb64-load">Load</button>
             </div>
 
             <div class="sb64-grid">
                 <div class="sb64-left">
-                    <div class="sb64-panel">
-                        <div class="sb64-toolbar">
-                            <span class="toolbar-label">Assembly Code (x86-64)</span>
-                            <select id="sb64-examples">
-                                <option value="">Load Example...</option>
-                                <optgroup label="Registers">
-                                    <option value="widths">Register widths &amp; sub-register rules</option>
-                                    <option value="newregs">New registers R8&ndash;R15</option>
-                                </optgroup>
-                                <optgroup label="Core">
-                                    <option value="arith64">64-bit arithmetic &amp; wraparound</option>
-                                    <option value="loop64">Loop (sum 1..5)</option>
-                                    <option value="callret64">CALL &amp; RET (double a value)</option>
-                                </optgroup>
-                                <optgroup label="Calling Convention">
-                                    <option value="winabi">Windows x64 (RCX, RDX, R8, R9)</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <textarea id="sb64-code" spellcheck="false" placeholder="Type x86-64 assembly here, one instruction per line.
+                    <div class="sp-action-panel">
+                        <h4>Actions</h4>
 
-Examples:
-  mov rax, 0x1122334455667788
-  mov r8, 100
-  add rax, r8"></textarea>
-                        <div class="sb64-controls">
-                            <button id="sb64-run" class="sim-btn primary">Load &amp; Reset</button>
-                            <button id="sb64-step" class="sim-btn" disabled>Step</button>
-                            <button id="sb64-runall" class="sim-btn" disabled>Run All</button>
-                            <button id="sb64-reset" class="sim-btn danger" disabled>Reset</button>
+                        <div class="sp-action-group">
+                            <div class="sp-group-label">Stack Operations</div>
+                            <div class="sp-action-row">
+                                <input type="text" id="sb64-push-val" value="42" placeholder="value or register">
+                                <button class="sim-btn" id="sb64-push">PUSH</button>
+                            </div>
+                            <div class="sp-action-row">
+                                <select id="sb64-pop-dst">
+                                    <option>rax</option><option>rbx</option><option>rcx</option><option>rdx</option>
+                                    <option>rsi</option><option>rdi</option><option>r8</option><option>r9</option>
+                                </select>
+                                <button class="sim-btn" id="sb64-pop">POP</button>
+                            </div>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <div class="sp-group-label">Function Calls</div>
+                            <div class="sp-action-row">
+                                <input type="text" id="sb64-call-name" value="myfunc" placeholder="label name">
+                                <button class="sim-btn" id="sb64-call">CALL</button>
+                            </div>
+                            <button class="sim-btn" id="sb64-ret" style="width:100%">RET</button>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <div class="sp-group-label">Stack Frame</div>
+                            <div class="sp-action-row">
+                                <button class="sim-btn" id="sb64-prologue">PROLOGUE</button>
+                                <span class="sp-hint">push rbp; mov rbp, rsp</span>
+                            </div>
+                            <div class="sp-action-row">
+                                <input type="text" id="sb64-alloc-n" value="16">
+                                <button class="sim-btn" id="sb64-alloc">ALLOC</button>
+                                <span class="sp-hint">sub rsp, N</span>
+                            </div>
+                            <div class="sp-action-row">
+                                <button class="sim-btn" id="sb64-leave" style="width:100%">LEAVE</button>
+                                <span class="sp-hint">mov rsp, rbp; pop rbp</span>
+                            </div>
+                        </div>
+
+                        <div class="sp-action-group">
+                            <div class="sp-group-label">Execute Any Instruction</div>
+                            <input type="text" id="sb64-exec" placeholder="e.g. mov rax, 100" style="width:100%;margin-bottom:0.4rem">
+                            <button class="sim-btn primary" id="sb64-exec-btn" style="width:100%">EXECUTE</button>
+                            <div class="sp-quick-chips">
+                                <span class="sp-chip-label">Try:</span>
+                                <button class="sp-chip" data-ex="mov rax, 0x1122334455667788">mov rax, 0x11...88</button>
+                                <button class="sp-chip" data-ex="mov eax, 0xFFFFFFFF">mov eax, 0xFFFFFFFF</button>
+                                <button class="sp-chip" data-ex="mov r8, 100">mov r8, 100</button>
+                                <button class="sp-chip" data-ex="add rax, r8">add rax, r8</button>
+                                <button class="sp-chip" data-ex="xor rax, rax">xor rax, rax</button>
+                                <button class="sp-chip" data-ex="imul rax, rax, 3">imul rax, rax, 3</button>
+                            </div>
+                            <p class="sp-hint" style="margin:0.5rem 0 0">Phase 1 set: mov/movzx/movsx, add/sub/inc/dec/neg, and/or/xor/not/test, shl/shr/sar/rol/ror, cmp, imul (2&amp;3-op), push/pop/call/ret/leave, lea, jumps.</p>
+                        </div>
+
+                        <div class="sp-action-group" style="border-bottom:none">
+                            <button class="sim-btn" id="sb64-undo" style="width:100%;margin-bottom:0.4rem" disabled>Undo Last Action</button>
+                            <button class="sim-btn danger" id="sb64-reset" style="width:100%">Reset</button>
                         </div>
                     </div>
-                    <div id="sb64-trace" class="sandbox-trace"></div>
                 </div>
 
                 <div class="sb64-right">
@@ -4419,6 +4462,10 @@ Examples:
                         <div class="sim-reg-header"><h3>Flags</h3></div>
                         <div id="sb64-flags" class="sb64-flags"></div>
                     </div>
+                    <div class="sp-callstack-panel">
+                        <div class="sp-callstack-label">Call Stack</div>
+                        <div class="sp-callstack-chain" id="sb64-callstack"></div>
+                    </div>
                     <div class="sim-reg-box">
                         <div class="sim-reg-header"><h3>Stack (top = RSP)</h3></div>
                         <div id="sb64-stack" class="stack-diagram" style="margin:0;border:none"></div>
@@ -4427,22 +4474,22 @@ Examples:
             </div>
 
             <div class="sp-explain-box" id="sb64-explain">
-                <h4>Getting Started</h4>
-                <p>Type or paste 64-bit assembly (or pick an example), then click <strong>Load &amp; Reset</strong>. Use <strong>Step</strong> to execute one instruction at a time, or <strong>Run All</strong> to run to the end.</p>
+                <h4>What's Happening</h4>
+                <p class="sp-explain-desc">Click any action to see the assembly equivalent and a plain-English explanation of what changed. Try <strong>PUSH</strong> a few values then <strong>POP</strong> them &mdash; notice they come back in reverse order (LIFO).</p>
             </div>
 
             <div class="sim-reg-box" style="margin-top:0.8rem">
                 <div class="sim-reg-header"><h3>Action Log</h3></div>
-                <div id="sb64-log" class="sp-log" style="padding:0.5rem 0.8rem"><em style="color:var(--text-dim)">No instructions executed yet.</em></div>
+                <div id="sb64-log" class="sp-log" style="padding:0.5rem 0.8rem"><em style="color:var(--text-dim)">No actions yet.</em></div>
             </div>
 
             <div class="concept-box">
-                <h3>Try These</h3>
+                <h3>Try These Experiments</h3>
                 <ul>
-                    <li>Load <strong>Register widths</strong> and step it: watch <code>mov eax, ...</code> wipe the upper half of <code>RAX</code>, while <code>mov ax, ...</code> leaves it intact.</li>
-                    <li>Load <strong>64-bit arithmetic</strong>: add 1 to <code>0xFFFFFFFFFFFFFFFF</code> and see it wrap to 0 with <code>CF</code> set &mdash; a value no 32-bit register could hold.</li>
-                    <li>Load <strong>Windows x64</strong>: note the arguments go into <code>RCX/RDX/R8/R9</code> instead of being pushed, and the result comes back in <code>RAX</code>.</li>
-                    <li>Type your own: <code>mov r8, 0xDEADBEEFCAFE</code> then <code>mov r8d, 1</code> &mdash; the upper half vanishes.</li>
+                    <li><strong>PUSH 3 values, then POP them</strong> &mdash; they come out in reverse order (LIFO), and each moves RSP by 8.</li>
+                    <li><strong>PROLOGUE then ALLOC 16</strong> &mdash; watch RBP anchor the frame and RSP drop to make room for locals.</li>
+                    <li><strong>CALL myfunc</strong> &mdash; see the return address pushed automatically and a new frame appear in the call stack; <strong>RET</strong> unwinds it.</li>
+                    <li><strong>Execute <code>mov rax, 0x1122334455667788</code> then <code>mov eax, 1</code></strong> &mdash; the upper 32 bits vanish, the defining x64 rule.</li>
                 </ul>
             </div>
         </section>

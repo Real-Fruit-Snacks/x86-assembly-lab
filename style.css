@@ -2158,3 +2158,12 @@ p { margin-bottom: 0.7rem; }
 .sb64-flag b { color: var(--purple); }
 
 .sb64-empty { padding: 1.2rem; text-align: center; color: var(--text-dim); font-size: 0.82rem; font-family: var(--font-mono); }
+
+.sb64-scenario-row {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.sb64-scenario-row select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 5px; padding: 0.35rem 0.5rem; font-size: 0.85rem; font-family: var(--font-mono);
+    min-width: 220px;
+}
