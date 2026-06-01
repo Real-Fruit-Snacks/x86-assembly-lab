@@ -455,15 +455,105 @@ class AsmSimulator64 {
                     desc = `${operands[0]} = ${this._hex(res,bits)} (${op} by ${cnt})`;
                     break;
                 }
-                case 'imul': {
-                    // 2-operand: dst *= src ; 3-operand: dst = src * imm
-                    const bits = this.regBits(operands[0]);
-                    let res, a, b;
-                    if (operands.length === 3) { a = this.readOperand(operands[1]); b = this.readOperand(operands[2]); }
-                    else { a = this.readOperand(operands[0]); b = this.readOperand(operands[1]); }
-                    res = this.fromSigned(this.toSigned(a, bits) * this.toSigned(b, bits), bits);
-                    this.writeOperand(operands[0], res, bits);
-                    desc = `${operands[0]} = ${this._hex(res,bits)} (signed multiply)`;
+                case 'cdqe': {
+                    // sign-extend EAX into RAX
+                    const v = this.fromSigned(this.toSigned(this.getReg('eax'), 32), 64);
+                    this.setReg('rax', v);
+                    desc = `cdqe: RAX = sign-extend(EAX) = ${this._hex(v)}`;
+                    break;
+                }
+                case 'cqo': {
+                    // sign-extend RAX into RDX:RAX (RDX = all sign bits)
+                    const neg = (this.getReg('rax') >> 63n) & 1n;
+                    this.setReg('rdx', neg ? MASK64 : 0n);
+                    desc = `cqo: RDX = ${neg ? '0xFFFF...FFFF' : '0'} (sign-extend RAX into RDX:RAX)`;
+                    break;
+                }
+                case 'mul': case 'imul': {
+                    // 2- and 3-operand IMUL keep their truncating register form.
+                    if (op === 'imul' && operands.length >= 2) {
+                        const bits = this.regBits(operands[0]);
+                        let a, b;
+                        if (operands.length === 3) { a = this.readOperand(operands[1]); b = this.readOperand(operands[2]); }
+                        else { a = this.readOperand(operands[0]); b = this.readOperand(operands[1]); }
+                        const res = this.fromSigned(this.toSigned(a, bits) * this.toSigned(b, bits), bits);
+                        this.writeOperand(operands[0], res, bits);
+                        desc = `${operands[0]} = ${this._hex(res, bits)} (signed multiply)`;
+                        break;
+                    }
+                    // 1-operand form: accumulator * src -> high:low register pair
+                    const bits = this.operandBits(operands[0]);
+                    const acc = bits === 8 ? 'al' : bits === 16 ? 'ax' : bits === 32 ? 'eax' : 'rax';
+                    const hiReg = bits === 8 ? 'ah' : bits === 16 ? 'dx' : bits === 32 ? 'edx' : 'rdx';
+                    const src = this.readOperand(operands[0]);
+                    if (src === null) return this._err(`cannot parse operand "${operands[0]}"`);
+                    const W = BigInt(bits);
+                    const DW = BigInt(bits * 2);              // double width
+                    const dmask = (1n << DW) - 1n;
+                    let product, hi, lo;
+                    if (op === 'mul') {
+                        product = (this.getReg(acc) & this.mask(bits)) * (src & this.mask(bits));
+                    } else {
+                        const signed = this.toSigned(this.getReg(acc), bits) * this.toSigned(src, bits);
+                        product = (signed < 0n ? signed + (1n << DW) : signed) & dmask;  // double-width two's complement
+                    }
+                    lo = product & this.mask(bits);
+                    hi = (product >> W) & this.mask(bits);
+                    if (bits === 8) {
+                        // 8-bit: result goes in AX (AH:AL)
+                        this.setReg('ax', ((hi & 0xFFn) << 8n) | (lo & 0xFFn));
+                    } else {
+                        this.setReg(acc, lo);
+                        this.setReg(hiReg, hi);
+                    }
+                    // CF/OF set when the result needs the high half:
+                    //   MUL  -> hi != 0
+                    //   IMUL -> hi is not a pure sign-extension of lo
+                    let needsHigh;
+                    if (op === 'mul') needsHigh = hi !== 0n;
+                    else needsHigh = !(hi === 0n && ((lo >> (W - 1n)) & 1n) === 0n) &&
+                                     !(hi === this.mask(bits) && ((lo >> (W - 1n)) & 1n) === 1n);
+                    this.flags.CF = this.flags.OF = needsHigh ? 1 : 0;
+                    desc = `${op === 'mul' ? 'unsigned' : 'signed'} multiply: ${hiReg.toUpperCase()}:${acc.toUpperCase()} = ${this._hex(hi, bits)}:${this._hex(lo, bits)}`;
+                    break;
+                }
+                case 'div': case 'idiv': {
+                    const bits = this.operandBits(operands[0]);
+                    const acc = bits === 8 ? 'al' : bits === 16 ? 'ax' : bits === 32 ? 'eax' : 'rax';
+                    const hiReg = bits === 8 ? 'ah' : bits === 16 ? 'dx' : bits === 32 ? 'edx' : 'rdx';
+                    const remReg = bits === 8 ? 'ah' : hiReg;
+                    const divisor = this.readOperand(operands[0]);
+                    if (divisor === null) return this._err(`cannot parse operand "${operands[0]}"`);
+                    if ((divisor & this.mask(bits)) === 0n) return this._err('division by zero');
+                    const W = BigInt(bits);
+                    const DW = BigInt(bits * 2);
+                    let dividend, q, r;
+                    if (bits === 8) {
+                        // 8-bit divides AX by src
+                        dividend = this.getReg('ax') & 0xFFFFn;
+                        if (op === 'div') {
+                            q = dividend / (divisor & 0xFFn); r = dividend % (divisor & 0xFFn);
+                        } else {
+                            const sd = this.toSigned(dividend, 16), sv = this.toSigned(divisor, 8);
+                            q = this.fromSigned(sd / sv, 8); r = this.fromSigned(sd % sv, 8);
+                        }
+                        this.setReg('al', q & 0xFFn);
+                        this.setReg('ah', r & 0xFFn);
+                    } else {
+                        dividend = ((this.getReg(hiReg) & this.mask(bits)) << W) | (this.getReg(acc) & this.mask(bits));
+                        if (op === 'div') {
+                            q = dividend / (divisor & this.mask(bits)); r = dividend % (divisor & this.mask(bits));
+                        } else {
+                            // interpret the double-width dividend as signed (mask()/toSigned cap at 64-bit, so do it explicitly)
+                            const signBit = 1n << (DW - 1n);
+                            const sd = dividend >= signBit ? dividend - (1n << DW) : dividend;
+                            const sv = this.toSigned(divisor, bits);
+                            q = this.fromSigned(sd / sv, bits); r = this.fromSigned(sd % sv, bits);
+                        }
+                        this.setReg(acc, q & this.mask(bits));
+                        this.setReg(remReg, r & this.mask(bits));
+                    }
+                    desc = `${op === 'div' ? 'unsigned' : 'signed'} divide: ${acc.toUpperCase()}=${this._hex(q, bits)} (quotient), ${remReg.toUpperCase()}=${this._hex(r, bits)} (remainder)`;
                     break;
                 }
                 case 'push': {
@@ -530,7 +620,7 @@ class AsmSimulator64 {
                 case 'jno': return this._cj(operands[0], this.flags.OF === 0, 'OF=0 (no overflow)');
                 case 'nop': desc = '(no operation)'; break;
                 default:
-                    return this._err(`unknown / unsupported (Phase 1) instruction: "${op}"`);
+                    return this._err(`unknown or unsupported instruction: "${op}"`);
             }
         } catch (e) {
             return this._err(e.message);

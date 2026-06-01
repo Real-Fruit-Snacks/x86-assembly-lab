@@ -4379,6 +4379,7 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
                     <option value="pushed">Three values pushed</option>
                     <option value="frame">Inside a function frame</option>
                     <option value="callchain">Two calls deep (main &rarr; f &rarr; g)</option>
+                    <option value="divide">Ready to divide (1000 in RAX:RDX, 7 in RBX)</option>
                 </select>
                 <button class="sim-btn" id="sb64-load">Load</button>
             </div>
@@ -4441,8 +4442,12 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
                                 <button class="sp-chip" data-ex="add rax, r8">add rax, r8</button>
                                 <button class="sp-chip" data-ex="xor rax, rax">xor rax, rax</button>
                                 <button class="sp-chip" data-ex="imul rax, rax, 3">imul rax, rax, 3</button>
+                                <button class="sp-chip" data-ex="mov rax, 100">mov rax, 100</button>
+                                <button class="sp-chip" data-ex="mov rbx, 7">mov rbx, 7</button>
+                                <button class="sp-chip" data-ex="cqo">cqo</button>
+                                <button class="sp-chip" data-ex="idiv rbx">idiv rbx</button>
                             </div>
-                            <p class="sp-hint" style="margin:0.5rem 0 0">Phase 1 set: mov/movzx/movsx, add/sub/inc/dec/neg, and/or/xor/not/test, shl/shr/sar/rol/ror, cmp, imul (2&amp;3-op), push/pop/call/ret/leave, lea, jumps.</p>
+                            <p class="sp-hint" style="margin:0.5rem 0 0">Supported: mov/movzx/movsx/movsxd, add/sub/inc/dec/neg, mul/imul (1, 2 &amp; 3-operand), div/idiv, cbw-family (cdqe/cqo), and/or/xor/not/test, shl/shr/sar/rol/ror, cmp, push/pop/call/ret/leave, lea, and the full jump family.</p>
                         </div>
 
                         <div class="sp-action-group" style="border-bottom:none">

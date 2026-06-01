@@ -204,6 +204,11 @@
             sim.execute('push 0'); callstack.push('g');
             sim.execute('mov rax, 5');
         },
+        divide: () => {
+            sim.execute('mov rax, 1000');
+            sim.execute('cqo');
+            sim.execute('mov rbx, 7');
+        },
     };
     function loadScenario() {
         const which = $('sb64-scenario').value;

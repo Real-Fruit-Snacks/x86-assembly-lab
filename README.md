@@ -33,7 +33,7 @@ The stack playground has four modes (Explore, Step-Through, Puzzle, Errors) and 
 | TUTORIALS  | **27 sections** · 33 interactive mini-simulators · before/after snapshots  |
 | TOOLS      | **7 interactive** · instruction reference · number / bitwise / endianness · ASCII · flags · address calc |
 | STACK MODES | Explore · Step-Through · Puzzle · Errors                                   |
-| x64 PLAYGROUND | Button-driven · 4 scenarios · live call-chain · undo · free-form execute |
+| x64 PLAYGROUND | Button-driven · 5 scenarios · live call-chain · undo · free-form execute |
 | THEME      | **Catppuccin Mocha** with custom scrollbars                                 |
 | STACK      | **Vanilla** HTML/CSS/JS · no framework, no build, no dependencies · MIT     |
 
@@ -73,14 +73,15 @@ SUPPORTED INSTRUCTIONS (32-bit engine)
   JMP, JE, JNE, JB, JBE, JA, JAE, JL, JLE, JG, JGE, JS, JNS, JO, JNO
   (+ all aliases: JZ, JNZ, JNA, JNBE, SAL, RETN, etc.)
 
-SUPPORTED INSTRUCTIONS (64-bit engine, Phase 1)
+SUPPORTED INSTRUCTIONS (64-bit engine)
 
   MOV, MOVSX, MOVSXD, MOVZX, LEA, XCHG
-  ADD, SUB, INC, DEC, NEG, IMUL (2- and 3-operand)
+  ADD, SUB, INC, DEC, NEG
+  MUL, IMUL (1-operand, plus 2- and 3-operand IMUL), DIV, IDIV
+  CDQE, CQO
   AND, OR, XOR, NOT, TEST, CMP
   SHL, SHR, SAR, ROL, ROR
   PUSH, POP, CALL, RET, LEAVE, NOP, JMP + full Jcc family
-  (not yet: 1-operand MUL/IMUL, DIV/IDIV, CDQE/CQO)
 
 INPUT FORMATS
 
@@ -111,7 +112,7 @@ STACK PLAYGROUND MODES (32-bit)
 x64 PLAYGROUND (64-bit)
 
   Actions         PUSH / POP / CALL / RET / PROLOGUE / ALLOC / LEAVE / EXECUTE
-  Scenarios       Empty · Three pushed · Inside a frame · Two calls deep
+  Scenarios       Empty · Three pushed · Inside a frame · Two calls deep · Ready to divide
   Live views      16 registers · flags · stack diagram · main → f → g call-chain
   Extras          Undo last action · DEC/HEX/BIN toggle · quick-try chips
 
