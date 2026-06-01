@@ -39,6 +39,7 @@
             <li><a href="#learn-control" class="nav-link" data-section="learn-control">Control Structures</a></li>
             <li><a href="#learn-disasm-notation" class="nav-link" data-section="learn-disasm-notation">Reading Real Disassembly</a></li>
             <li><a href="#learn-xor-deobf" class="nav-link" data-section="learn-xor-deobf">XOR Deobfuscation</a></li>
+            <li><a href="#learn-keygen" class="nav-link" data-section="learn-keygen">Keygen Challenge</a></li>
             <li class="nav-group-label">Advanced</li>
             <li><a href="#learn-extensions" class="nav-link" data-section="learn-extensions">Extension Instructions</a></li>
             <li><a href="#learn-pointers" class="nav-link" data-section="learn-pointers">Pointers</a></li>
@@ -101,7 +102,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
-                    <p>Functional Analysis (reading a function and summarizing it), Control Structures (if/else, loops, switch/jump tables), Reading Real Disassembly (IDA/OllyDbg notation), and XOR Deobfuscation (defeating the most common malware string-hiding trick).</p>
+                    <p>Functional Analysis (reading a function and summarizing it), Control Structures (if/else, loops, switch/jump tables), Reading Real Disassembly (IDA/OllyDbg notation), XOR Deobfuscation (defeating the most common malware string-hiding trick), and a Keygen Challenge capstone (reverse a serial check).</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
@@ -207,6 +208,7 @@
                                     </optgroup>
                                     <optgroup label="Reverse Engineering">
                                         <option value="xor-decode">XOR string decode</option>
+                                        <option value="keygen">Keygen: reverse the check</option>
                                     </optgroup>
                                 </select>
                                 <button id="sandbox-load" class="sim-btn">Load</button>
@@ -2628,6 +2630,84 @@ mov eax, dword ptr [esi]    ; EAX = 0x53534150 -&gt; "PASS"</pre>
                     <li>If a register holds an unknown value and you run <code>xor eax, eax</code>, what's in EAX afterward, regardless of what it held before? (Always 0.)</li>
                     <li>Load the <strong>XOR string decode</strong> example in the Sandbox and change the key from <code>0x5A</code> to something else. Does the output still spell anything? (No &mdash; wrong key, wrong plaintext. The key is everything.)</li>
                     <li>Why would an author choose XOR over real encryption to hide a string? (Tiny, fast, self-reversing, and good enough to beat a casual <code>strings</code> scan.)</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Learn: Keygen Challenge -->
+        <section id="learn-keygen" class="section">
+            <h1>Keygen Challenge</h1>
+            <p>This is the capstone. A &ldquo;keygen&rdquo; (key generator) is the classic first real reverse-engineering exercise: a program checks whether a serial number is valid, and your job is to read the check and produce a serial that passes &mdash; without being told the answer. Everything earlier in this lab feeds into it: registers, arithmetic, comparison, conditional jumps, and the XOR you just met. The skill is not memorizing instructions; it's <em>working backwards</em> from the one comparison that decides everything.</p>
+
+            <div class="concept-box">
+                <h3>The Shape of Every Serial Check</h3>
+                <p>Strip away the details and almost every validation routine has the same three parts:</p>
+                <ol>
+                    <li>Take the entered serial (here, a value in a register).</li>
+                    <li>Run it through a <strong>transform</strong> &mdash; a chain of arithmetic and bitwise operations.</li>
+                    <li>Compare the result to a fixed <strong>target</strong> with <code>CMP</code>, then branch: equal means accepted, anything else means rejected.</li>
+                </ol>
+                <p>The whole program hinges on that single <code>CMP</code>. Find it, learn the target, and the rest of the work is undoing the transform.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Method: Read Forwards, Solve Backwards</h3>
+                <p>You read the routine top to bottom to understand what it does, but you <em>solve</em> it bottom to top. Start at the comparison &mdash; that tells you the value the transform must produce. Then walk back up the routine, applying the <strong>inverse</strong> of each step in reverse order. Each operation has a clean inverse:</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th>Forward step</th><th>Undo it with</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>add eax, N</code></td><td><code>sub</code> N (subtract it back)</td></tr>
+                        <tr><td><code>sub eax, N</code></td><td>add N</td></tr>
+                        <tr><td><code>imul eax, N</code></td><td>divide by N</td></tr>
+                        <tr><td><code>xor eax, K</code></td><td>XOR by the same K (it's self-inverse)</td></tr>
+                    </tbody>
+                </table>
+                <p>XOR being its own inverse &mdash; the property from the last page &mdash; is exactly why it's easy to walk back through.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Worked Example</h3>
+                <p>Here is the routine shipped in the Sandbox. Read it forwards first:</p>
+                <pre class="code-block">mov eax, 42          ; the serial under test
+imul eax, eax, 3     ; step 1:  serial * 3
+add eax, 16          ; step 2:  + 16
+xor eax, 0xD4        ; step 3:  XOR with 0xD4
+cmp eax, 0x5A        ; gate:    result must equal 0x5A
+je valid             ; equal  -> accepted</pre>
+                <p>Now ignore the <code>42</code> and solve it as if you'd never seen the answer. Start at the gate &mdash; the transform must produce <code>0x5A</code> &mdash; and undo each step from the bottom up:</p>
+                <ol>
+                    <li>Undo <code>xor 0xD4</code>: <code>0x5A ^ 0xD4 = 0x8E</code> (142)</li>
+                    <li>Undo <code>add 16</code>: <code>142 - 16 = 126</code></li>
+                    <li>Undo <code>imul 3</code>: <code>126 / 3 = 42</code></li>
+                </ol>
+                <p>The valid serial is <strong>42</strong> &mdash; recovered purely from the check, no guessing. Open the <a href="#sandbox">Sandbox Simulator</a>, load <strong>Reverse Engineering &rarr; Keygen: reverse the check</strong>, and step it: <code>ECX</code> ends at <code>1</code> (accepted). Then change the starting serial to any other number and watch <code>ECX</code> land on <code>0</code>.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Why This Matters for Real Software</h3>
+                <p>Real protection schemes are harder &mdash; they hash the username, mix in multiple constants, use rolling state, or call out to real cryptography &mdash; but the analyst's loop is identical: locate the decision point, recover the values feeding it, and invert the path back to an input. The toy routine here exercises the exact muscle you'll use on a real binary in IDA: anchor on the compare, then reason backwards. (Note: doing this to bypass licensing on software you don't own is generally illegal &mdash; the value is in learning to read code, which is the foundation of malware analysis and vulnerability research.)</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice: Solve This One Yourself</h3>
+                <p>Here's a different check. Don't run it yet &mdash; derive a passing serial by hand first, then verify it in the Sandbox by pasting the routine and replacing the starting value.</p>
+                <pre class="code-block">mov eax, 0           ; replace 0 with your answer
+xor eax, 0x33        ; step 1
+add eax, 5           ; step 2
+cmp eax, 0x40        ; must equal 0x40
+je good
+mov edx, 0           ; EDX = 0 -> rejected
+jmp end
+good:
+mov edx, 1           ; EDX = 1 -> accepted
+end:
+nop</pre>
+                <ul>
+                    <li>Work backwards from <code>0x40</code>: undo <code>add 5</code>, then undo <code>xor 0x33</code>. What serial passes? (<code>0x40 - 5 = 0x3B</code>, then <code>0x3B ^ 0x33 = 0x08</code> &mdash; the answer is <strong>8</strong>.)</li>
+                    <li>Paste the routine into the Sandbox, set <code>eax</code> to <code>8</code>, and step it &mdash; <code>EDX</code> should finish at <code>1</code>.</li>
+                    <li>Why was it safe to undo the <code>xor</code> with the same constant rather than a different &ldquo;decrypt&rdquo; value? (XOR is its own inverse.)</li>
                 </ul>
             </div>
         </section>
