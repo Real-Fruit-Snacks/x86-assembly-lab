@@ -163,6 +163,10 @@ class AsmSimulator {
             size = s === 'byte' ? 1 : s === 'word' ? 2 : s === 'dword' ? 4 : 8;
             expr = op.slice(sizeMatch[0].length);
         }
+        // Strip optional segment selector (cs:/ds:/ss:/es:/fs:/gs:). This flat
+        // memory model does not implement segmentation, so the selector that
+        // disassemblers like OllyDbg/IDA emit (e.g. SS:[ebp-4]) is ignored.
+        expr = expr.trim().replace(/^(cs|ds|ss|es|fs|gs):/i, '');
         // Must have brackets
         const bracketMatch = expr.match(/^\[(.+)\]$/);
         if (!bracketMatch) return null;
@@ -174,7 +178,8 @@ class AsmSimulator {
 
     isMemOperand(op) {
         if (!op) return false;
-        const stripped = op.replace(/^(byte|word|dword|qword)\s+ptr\s+/i, '');
+        let stripped = op.trim().replace(/^(byte|word|dword|qword)\s+ptr\s+/i, '');
+        stripped = stripped.trim().replace(/^(cs|ds|ss|es|fs|gs):/i, '');
         return /^\[.+\]$/.test(stripped.trim());
     }
 
@@ -323,7 +328,7 @@ class AsmSimulator {
             mov:2, movsx:2, movzx:2, add:2, sub:2, and:2, or:2, xor:2, cmp:2, test:2, shl:2, sal:2, shr:2, sar:2, rol:2, ror:2,
             inc:1, dec:1, neg:1, not:1, mul:1, div:1, imul:1, idiv:1,
             xchg:2, lea:2, push:1, pop:1,
-            nop:0, cdq:0, ret:0,
+            nop:0, cdq:0, cbw:0, cwd:0, cwde:0, ret:0,
         };
         const minOps = needsOps[op];
         if (minOps !== undefined && operands.filter(o => o && o.trim()).length < minOps) {
@@ -653,6 +658,29 @@ class AsmSimulator {
                     }
                     break;
                 }
+                case 'cbw': {
+                    const al = this.toSigned(this.getReg('al'), 8);
+                    this.setReg('ax', this.fromSigned(al, 16) & 0xFFFF);
+                    desc = `sign-extend AL into AX. AL = ${al} (${al < 0 ? 'negative' : 'non-negative'}), ` +
+                           `so AX = ${this.toSigned(this.getReg('ax'), 16)}. The upper byte AH is filled with AL's sign bit.`;
+                    break;
+                }
+                case 'cwde': {
+                    const ax = this.toSigned(this.getReg('ax'), 16);
+                    this.setReg('eax', this.fromSigned(ax, 32));
+                    desc = `sign-extend AX into EAX. AX = ${ax} (${ax < 0 ? 'negative' : 'non-negative'}), ` +
+                           `so EAX = ${this.toSigned(this.getReg('eax'), 32)}. The upper 16 bits are filled with AX's sign bit.`;
+                    break;
+                }
+                case 'cwd': {
+                    const ax = this.toSigned(this.getReg('ax'), 16);
+                    const newDx = ax < 0 ? 0xFFFF : 0;
+                    this.setReg('dx', newDx);
+                    desc = `sign-extend AX into DX:AX. AX = ${ax} is ${ax < 0 ? 'negative' : 'non-negative'}, ` +
+                           `so DX is set to ${ax < 0 ? '0xFFFF (all 1s)' : '0'}. ` +
+                           `Now DX:AX forms a valid 32-bit signed version of AX, ready for IDIV.`;
+                    break;
+                }
                 case 'cdq': {
                     const eax = this.toSigned(this.getReg('eax'), 32);
                     const newEdx = eax < 0 ? 0xFFFFFFFF : 0;
@@ -847,7 +875,8 @@ class AsmSimulator {
             neg:'neg eax', xchg:'xchg eax, ebx', and:'and al, dl', or:'or al, 0x0F', xor:'xor eax, eax',
             not:'not al', test:'test eax, eax', cmp:'cmp eax, 10', shl:'shl eax, 2', shr:'shr eax, 1',
             sar:'sar ecx, 1', mul:'mul ecx', div:'div ecx', imul:'imul eax, ecx', idiv:'idiv ecx',
-            lea:'lea esi, [ecx+edi]', push:'push eax', pop:'pop ebx', call:'call func', cdq:'cdq', nop:'nop',
+            lea:'lea esi, [ecx+edi]', push:'push eax', pop:'pop ebx', call:'call func', cdq:'cdq',
+            cbw:'cbw', cwd:'cwd', cwde:'cwde', nop:'nop',
         };
         return examples[op] || op;
     }
@@ -895,7 +924,7 @@ class AsmSimulator {
             'mov','movsx','movzx','add','sub','inc','dec','neg','xchg',
             'and','or','xor','not','test','cmp',
             'shl','sal','shr','sar','rol','ror',
-            'mul','imul','div','idiv','cdq',
+            'mul','imul','div','idiv','cdq','cbw','cwd','cwde',
             'lea','nop','push','pop','call','ret','retn','leave',
             'jmp','je','jz','jne','jnz','jb','jnae','jbe','jna',
             'ja','jnbe','jae','jnb','jc','jnc',
@@ -955,14 +984,28 @@ class AsmSimulator {
             } else if (this.isReg(t)) {
                 total += this.getReg(t);
             } else {
-                // Try parsing as number (decimal or hex with h suffix)
+                // Parse as a number. Order matters so the lab's existing
+                // decimal convention is preserved while still correctly
+                // reading disassembler-style hex addresses:
+                //   0x...     explicit hex
+                //   123 / -4  pure decimal (unchanged: keeps [ebp-4], offsets, etc.)
+                //   004940d8  contains hex letters → can only be hex (was being
+                //             silently truncated to 4940 by parseInt before)
                 let n;
-                if (/^-?[0-9a-fA-F]+h$/i.test(t)) {
+                if (/^-?[0-9a-f]+h$/i.test(t)) {
                     const neg = t.startsWith('-');
                     n = parseInt(neg ? t.slice(1, -1) : t.slice(0, -1), 16);
                     if (neg) n = -n;
+                } else if (/^-?0x[0-9a-f]+$/i.test(t)) {
+                    n = parseInt(t, 16);
+                } else if (/^-?\d+$/.test(t)) {
+                    n = parseInt(t, 10);
+                } else if (/^-?[0-9a-f]+$/i.test(t)) {
+                    const neg = t.startsWith('-');
+                    n = parseInt(neg ? t.slice(1) : t, 16);
+                    if (neg) n = -n;
                 } else {
-                    n = parseInt(t);
+                    n = NaN;
                 }
                 if (!isNaN(n)) total += n;
                 else return null;
