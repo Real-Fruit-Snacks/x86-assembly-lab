@@ -5,6 +5,7 @@
 // getReg / setReg / getActiveRegs / getStackEntries / toSigned.
 // ============================================================
 
+(function () {
 const MASK64 = (1n << 64n) - 1n;
 
 class AsmSimulator64 {
@@ -547,4 +548,8 @@ class AsmSimulator64 {
     }
 }
 
+// Expose without leaking a top-level lexical binding. Assignment is
+// idempotent, so loading this script more than once never throws.
+if (typeof globalThis !== 'undefined') globalThis.AsmSimulator64 = AsmSimulator64;
 if (typeof module !== 'undefined' && module.exports) module.exports = { AsmSimulator64 };
+})();
