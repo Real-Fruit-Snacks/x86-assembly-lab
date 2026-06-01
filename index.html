@@ -51,7 +51,6 @@
             <li><a href="#learn-heap" class="nav-link" data-section="learn-heap">Dynamic Memory</a></li>
             <li><a href="#learn-floatingpoint" class="nav-link" data-section="learn-floatingpoint">Floating Point</a></li>
             <li><a href="#learn-misc" class="nav-link" data-section="learn-misc">Misc Instructions</a></li>
-            <li><a href="#learn-x64" class="nav-link" data-section="learn-x64">x64 Differences</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -61,7 +60,8 @@
             <li><a href="#flags-calc" class="nav-link" data-section="flags-calc">Flags Calculator</a></li>
             <li><a href="#address-calc" class="nav-link" data-section="address-calc">Address Calculator</a></li>
             <li class="nav-group-label">x86-64</li>
-            <li><a href="#sandbox64" class="nav-link" data-section="sandbox64">x64 Sandbox</a></li>
+            <li><a href="#learn-x64" class="nav-link" data-section="learn-x64">x64 Differences</a></li>
+            <li><a href="#sandbox64" class="nav-link" data-section="sandbox64">x64 Playground</a></li>
         </ul>
     </nav>
 
@@ -72,8 +72,8 @@
         <section id="home" class="section active">
             <h1>x86 Assembly Learning Lab</h1>
             <p class="intro-text">
-                A complete interactive environment for learning x86 assembly. Step through instructions,
-                visualize the stack, quiz yourself, and explore every concept with hands-on tools.
+                A complete interactive environment for learning x86 and x86-64 assembly. Step through instructions,
+                visualize the stack, drive a 64-bit machine, quiz yourself, and explore every concept with hands-on tools.
                 Everything runs in your browser &mdash; no setup required.
             </p>
 
@@ -81,7 +81,7 @@
             <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('sandbox')">
                     <h3>Sandbox Simulator</h3>
-                    <p>Paste any x86 code and step through it. Full instruction support including branches, memory, stack, and calls. 24 pre-built examples.</p>
+                    <p>Paste any x86 code and step through it. Full instruction support including branches, memory, stack, and calls. 26 pre-built examples.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('stack-playground')">
                     <h3>Stack Playground</h3>
@@ -91,9 +91,17 @@
                     <h3>Register Quiz</h3>
                     <p>Game-ified practice. Random problems at 3 difficulty levels. Score, streak tracking, and a timer to gauge your speed.</p>
                 </div>
+            </div>
+
+            <h2 style="margin-top:1.5rem">x86-64 (64-bit)</h2>
+            <div class="feature-grid">
                 <div class="feature-card" onclick="navigate('sandbox64')">
-                    <h3>x64 Sandbox</h3>
-                    <p>A true 64-bit register machine (RAX&hellip;R15) on a separate BigInt engine. Step real x86-64 code and watch the 64-bit rules play out.</p>
+                    <h3>x64 Playground</h3>
+                    <p>Drive a true 64-bit machine (RAX&hellip;R15) with action buttons &mdash; push/pop, call/return, build a stack frame, or run any instruction. A separate BigInt engine, so 64-bit rules behave correctly. Live registers, flags, stack, and call-chain.</p>
+                </div>
+                <div class="feature-card" onclick="navigate('learn-x64')">
+                    <h3>x64 Differences</h3>
+                    <p>What changes moving from 32-bit to 64-bit: the E&rarr;R registers, the eight new R8&ndash;R15, the Windows and System V calling conventions, and RIP-relative addressing. A reference map for reading 64-bit disassembly.</p>
                 </div>
             </div>
 
@@ -105,7 +113,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-arithmetic')">
                     <h3>Instructions</h3>
-                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. 24 mini-simulators, before/after register snapshots, and step-by-step walkthroughs.</p>
+                    <p>Arithmetic, Bitwise Logic, Multiply &amp; Divide, Shifts, Branching, Stack &amp; Functions, Common Idioms. 18 mini-simulators, before/after register snapshots, and step-by-step walkthroughs.</p>
                 </div>
                 <div class="feature-card" onclick="navigate('learn-func-analysis')">
                     <h3>Analysis Skills</h3>
@@ -113,7 +121,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
-                    <p>11 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, miscellaneous instructions, and x64 differences.</p>
+                    <p>10 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and miscellaneous instructions. (x64 differences now lives in the x86-64 group above.)</p>
                 </div>
             </div>
 
@@ -155,6 +163,8 @@
                     <li><strong>Brand new to assembly?</strong> Start with <strong>Fundamentals &rarr; Register Map</strong>, then work through the Instruction tutorials. Try the mini-simulators embedded in each.</li>
                     <li><strong>Want to practice?</strong> Use the <strong>Register Quiz</strong> (Easy &rarr; Medium &rarr; Hard) or the <strong>Stack Playground Puzzle mode</strong>.</li>
                     <li><strong>Solving a specific problem?</strong> Paste the code into the <strong>Sandbox Simulator</strong> and step through it to watch registers change.</li>
+                    <li><strong>Heading toward reverse engineering?</strong> Follow the analysis arc: <strong>Reading Real Disassembly</strong> (IDA/OllyDbg notation) &rarr; <strong>XOR Deobfuscation</strong> &rarr; the <strong>Keygen Challenge</strong> capstone.</li>
+                    <li><strong>Curious about 64-bit?</strong> Read <strong>x64 Differences</strong> for what changes, then open the <strong>x64 Playground</strong> to drive a real RAX&hellip;R15 machine and watch the rules play out.</li>
                     <li><strong>Learning the stack specifically?</strong> The <strong>Stack Playground</strong> Explore mode with its key facts card is the most visual way to understand it.</li>
                     <li><strong>Stuck on an instruction?</strong> The <strong>Instruction Reference</strong> has every instruction with examples &mdash; searchable.</li>
                     <li><strong>Need to find something fast?</strong> Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (or <kbd>Cmd</kbd>+<kbd>K</kbd> on Mac) anywhere on the site to open a search palette that finds sections, instructions, and concepts instantly.</li>
@@ -4342,7 +4352,7 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
             </div>
         </section>
 
-        <!-- x64 Sandbox (64-bit engine) -->
+        <!-- x64 Playground (64-bit engine) -->
         <section id="sandbox64" class="section">
             <h1>x64 Playground <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; interactive 64-bit machine</span></h1>
             <p>Drive a real 64-bit register machine with buttons &mdash; push and pop, call and return, build a stack frame, or run any single instruction &mdash; and watch all sixteen registers, the flags, the stack, and the call chain update live. This is a separate engine from the 32-bit tools, so 64-bit rules behave correctly (a 32-bit write like <code>mov eax, ...</code> zeroes the upper half of <code>RAX</code>). New to the differences? Read <a href="#learn-x64">x64 Differences</a> first.</p>
