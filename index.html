@@ -51,6 +51,7 @@
             <li><a href="#learn-heap" class="nav-link" data-section="learn-heap">Dynamic Memory</a></li>
             <li><a href="#learn-floatingpoint" class="nav-link" data-section="learn-floatingpoint">Floating Point</a></li>
             <li><a href="#learn-misc" class="nav-link" data-section="learn-misc">Misc Instructions</a></li>
+            <li><a href="#learn-x64" class="nav-link" data-section="learn-x64">x64 Differences</a></li>
             <li class="nav-group-label">Tools</li>
             <li><a href="#reference" class="nav-link" data-section="reference">Instruction Reference</a></li>
             <li><a href="#number-converter" class="nav-link" data-section="number-converter">Number Converter</a></li>
@@ -59,6 +60,8 @@
             <li><a href="#ascii-table" class="nav-link" data-section="ascii-table">ASCII Table</a></li>
             <li><a href="#flags-calc" class="nav-link" data-section="flags-calc">Flags Calculator</a></li>
             <li><a href="#address-calc" class="nav-link" data-section="address-calc">Address Calculator</a></li>
+            <li class="nav-group-label">x86-64</li>
+            <li><a href="#sandbox64" class="nav-link" data-section="sandbox64">x64 Sandbox</a></li>
         </ul>
     </nav>
 
@@ -88,6 +91,10 @@
                     <h3>Register Quiz</h3>
                     <p>Game-ified practice. Random problems at 3 difficulty levels. Score, streak tracking, and a timer to gauge your speed.</p>
                 </div>
+                <div class="feature-card" onclick="navigate('sandbox64')">
+                    <h3>x64 Sandbox</h3>
+                    <p>A true 64-bit register machine (RAX&hellip;R15) on a separate BigInt engine. Step real x86-64 code and watch the 64-bit rules play out.</p>
+                </div>
             </div>
 
             <h2 style="margin-top:1.5rem">Tutorials</h2>
@@ -106,7 +113,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
-                    <p>10 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and miscellaneous instructions.</p>
+                    <p>11 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, miscellaneous instructions, and x64 differences.</p>
                 </div>
             </div>
 
@@ -3866,6 +3873,88 @@ FSTP dword ptr [ebp-10h]</pre>
             </div>
         </section>
 
+        <!-- Learn: x64 Differences -->
+        <section id="learn-x64" class="section">
+            <h1>x64 Differences</h1>
+            <div class="concept-box" style="border-left-color: var(--yellow);">
+                <p style="margin:0;"><strong>Reference only.</strong> This simulator models 32-bit x86 (IA-32) &mdash; registers like EAX, a 4-byte word, and the cdecl/stdcall conventions. It does <em>not</em> execute 64-bit code. This page is a map of what changes when you move to x64, so a 64-bit listing in IDA or Ghidra doesn't catch you off guard. Everything else you've learned here still applies.</p>
+            </div>
+
+            <p>x86-64 (also called x64, AMD64, or Intel 64) is the 64-bit extension of the architecture this lab teaches. Most of what you know transfers directly: the same mnemonics, the same flags, the same stack discipline, the same read-forwards-solve-backwards analysis skills. What changes is the <em>width</em> of registers, the <em>number</em> of them, and the <em>calling convention</em>.</p>
+
+            <div class="concept-box">
+                <h3>1. The Registers Grow: E&rarr;R</h3>
+                <p>Every 32-bit register becomes a 64-bit register by swapping the leading <code>E</code> for an <code>R</code>. The smaller names still work and refer to the lower bits, exactly like AL/AX/EAX nest inside each other in 32-bit.</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th>64-bit</th><th>Low 32</th><th>Low 16</th><th>Low 8</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>RAX</code></td><td><code>EAX</code></td><td><code>AX</code></td><td><code>AL</code></td></tr>
+                        <tr><td><code>RBX</code></td><td><code>EBX</code></td><td><code>BX</code></td><td><code>BL</code></td></tr>
+                        <tr><td><code>RCX</code></td><td><code>ECX</code></td><td><code>CX</code></td><td><code>CL</code></td></tr>
+                        <tr><td><code>RDX</code></td><td><code>EDX</code></td><td><code>DX</code></td><td><code>DL</code></td></tr>
+                        <tr><td><code>RSI / RDI</code></td><td><code>ESI / EDI</code></td><td><code>SI / DI</code></td><td><code>SIL / DIL</code></td></tr>
+                        <tr><td><code>RBP / RSP</code></td><td><code>EBP / ESP</code></td><td><code>BP / SP</code></td><td><code>BPL / SPL</code></td></tr>
+                        <tr><td><code>RIP</code></td><td colspan="3">instruction pointer (see RIP-relative addressing below)</td></tr>
+                    </tbody>
+                </table>
+                <p>One quirk worth knowing: writing to a 32-bit register in x64 (<code>mov eax, 5</code>) <strong>zeroes the upper 32 bits</strong> of the full RAX. Writing to a 16- or 8-bit sub-register does not. This trips up beginners reading 64-bit code.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>2. Eight New Registers: R8 through R15</h3>
+                <p>x64 adds eight general-purpose registers with no legacy names. You access their narrower parts with a size suffix rather than a different name:</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th>64-bit</th><th>Low 32</th><th>Low 16</th><th>Low 8</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>R8</code></td><td><code>R8D</code></td><td><code>R8W</code></td><td><code>R8B</code></td></tr>
+                        <tr><td><code>R9 &hellip; R15</code></td><td><code>R9D &hellip;</code></td><td><code>R9W &hellip;</code></td><td><code>R9B &hellip;</code></td></tr>
+                    </tbody>
+                </table>
+                <p>Unlike the legacy registers, there is <strong>no way to access a &ldquo;high byte&rdquo;</strong> of the new registers (there is no R8H to mirror AH). More registers means compilers spill fewer values to the stack, so x64 functions often pass and hold more in registers than the 32-bit code you've been reading.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>3. A Different Calling Convention</h3>
+                <p>This is the biggest practical change. In 32-bit code you saw arguments <code>push</code>ed onto the stack (cdecl/stdcall). In x64 the first several arguments travel in <em>registers</em>, and there's effectively one convention per platform instead of several.</p>
+                <table class="cheat-table">
+                    <thead>
+                        <tr><th></th><th>Windows x64</th><th>System V (Linux/macOS)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>First integer args (in order)</td><td><code>RCX, RDX, R8, R9</code></td><td><code>RDI, RSI, RDX, RCX, R8, R9</code></td></tr>
+                        <tr><td>Extra args</td><td>pushed on the stack</td><td>pushed on the stack</td></tr>
+                        <tr><td>Return value</td><td><code>RAX</code></td><td><code>RAX</code></td></tr>
+                        <tr><td>Stack quirk</td><td>caller reserves 32 bytes of &ldquo;shadow space&rdquo;</td><td>128-byte &ldquo;red zone&rdquo; below RSP</td></tr>
+                    </tbody>
+                </table>
+                <p>So when you read an x64 function, the arguments aren't a tidy stack of <code>push</code>es before the <code>call</code> &mdash; they're values loaded into <code>rcx</code>, <code>rdx</code>, and friends just before it. Recognizing that pattern is the main adjustment.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>4. RIP-Relative Addressing</h3>
+                <p>x64 code commonly addresses data relative to the instruction pointer itself: <code>lea rax, [rip+0x2030]</code>. This makes code position-independent (it works wherever the loader places it), which is why you'll see it everywhere in 64-bit disassembly where 32-bit code would have used a hardcoded absolute address like <code>ds:[004030A0]</code>. When you see <code>[rip+&hellip;]</code>, read it as &ldquo;a global, addressed relatively.&rdquo;</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>What Stays the Same</h3>
+                <p>Don't let the changes overwhelm the continuity. The mnemonics are identical (<code>mov</code>, <code>add</code>, <code>xor</code>, <code>cmp</code>, <code>jcc</code>, <code>call</code>/<code>ret</code>). The flags register works the same way. The stack still grows downward and frames still anchor on the base pointer (now <code>rbp</code>). Signed vs. unsigned, two's complement, the meaning of <code>cmp</code> + a conditional jump, reading a transform and inverting it &mdash; all of it carries straight over. Learning x64 is mostly learning a wider, roomier version of what you already know, not starting again.</p>
+            </div>
+
+            <div class="practice-box">
+                <h3>Practice</h3>
+                <ul>
+                    <li>A 64-bit listing loads <code>rcx</code>, <code>rdx</code>, and <code>r8</code> just before a <code>call</code> on Windows. How many arguments is it likely passing, and where would a fourth go? (Three in registers; a fourth would use <code>r9</code>, a fifth onward goes on the stack.)</li>
+                    <li>You see <code>mov eax, 1</code> in x64 code. What happened to the upper 32 bits of <code>rax</code>? (They were zeroed &mdash; a 32-bit write clears the high half.)</li>
+                    <li>In 32-bit you'd see <code>mov eax, ds:[00403010]</code> for a global. What's the typical x64 equivalent? (RIP-relative, e.g. <code>mov eax, [rip+0x2ff8]</code>.)</li>
+                    <li>Which of your existing skills &mdash; flags, two's complement, the keygen method &mdash; need to change for x64? (None of them; only register width, register count, and the calling convention differ.)</li>
+                </ul>
+            </div>
+        </section>
+
         <!-- Instruction Reference -->
         <section id="reference" class="section">
             <h1>x86 Instruction Reference</h1>
@@ -4253,6 +4342,73 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
             </div>
         </section>
 
+        <!-- x64 Sandbox (64-bit engine) -->
+        <section id="sandbox64" class="section">
+            <h1>x64 Sandbox <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; 64-bit simulator</span></h1>
+            <p>A full 64-bit register machine: <code>RAX</code>&hellip;<code>R15</code>, 64-bit values, and the x64 rules in action. This is a separate engine from the 32-bit Sandbox &mdash; values are true 64-bit, so things like writing <code>EAX</code> zeroing the upper half of <code>RAX</code> behave correctly. New to the differences? Read <a href="#learn-x64">x64 Differences</a> first. Phase 1 supports the core instruction set (mov/movzx/movsx, arithmetic, logic, shifts/rotates, cmp/test, push/pop, call/ret/leave, jumps, lea, 2/3-operand imul).</p>
+
+            <div class="sandbox-layout">
+                <div class="sandbox-left">
+                    <div class="sandbox-input-area">
+                        <div class="sandbox-toolbar">
+                            <span class="toolbar-label">Assembly Code (x86-64)</span>
+                            <div class="sandbox-toolbar-btns">
+                                <select id="sb64-examples">
+                                    <option value="">Load Example...</option>
+                                    <optgroup label="Registers">
+                                        <option value="widths">Register widths &amp; sub-register rules</option>
+                                        <option value="newregs">New registers R8&ndash;R15</option>
+                                    </optgroup>
+                                    <optgroup label="Core">
+                                        <option value="arith64">64-bit arithmetic &amp; wraparound</option>
+                                        <option value="loop64">Loop (sum 1..5)</option>
+                                        <option value="callret64">CALL &amp; RET (double a value)</option>
+                                    </optgroup>
+                                    <optgroup label="Calling Convention">
+                                        <option value="winabi">Windows x64 (RCX, RDX, R8, R9)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                        </div>
+                        <textarea id="sb64-code" spellcheck="false" placeholder="Type x86-64 assembly here, one instruction per line.
+
+Examples:
+  mov rax, 0x1122334455667788
+  mov r8, 100
+  add rax, r8"></textarea>
+                    </div>
+                    <div class="sandbox-controls">
+                        <button id="sb64-run" class="sim-btn primary">Load &amp; Reset</button>
+                        <button id="sb64-step" class="sim-btn" disabled>Step</button>
+                        <button id="sb64-runall" class="sim-btn" disabled>Run All</button>
+                        <button id="sb64-reset" class="sim-btn danger" disabled>Reset</button>
+                    </div>
+                    <div id="sb64-trace" class="sandbox-trace"></div>
+                </div>
+                <div class="sandbox-right">
+                    <div id="sb64-explain" class="sim-explain">
+                        <h4>Getting Started</h4>
+                        <p>Type or paste 64-bit assembly, then click <strong>Load &amp; Reset</strong>. Use <strong>Step</strong> to execute one instruction at a time, or load an example from the menu.</p>
+                    </div>
+                    <div id="sb64-regbox" class="sim-reg-box">
+                        <div class="sim-reg-header">
+                            <h3>Registers (64-bit)</h3>
+                            <div class="format-toggle">
+                                <button class="format-btn" data-fmt="dec">DEC</button>
+                                <button class="format-btn active" data-fmt="hex">HEX</button>
+                                <button class="format-btn" data-fmt="bin">BIN</button>
+                            </div>
+                        </div>
+                        <div id="sb64-regs" class="sim-reg-body"></div>
+                    </div>
+                    <div id="sb64-flags" class="sim-flags-box" style="display:none">
+                        <div class="sim-reg-header"><h3>Flags</h3></div>
+                        <div id="sb64-flags-body" class="sim-reg-body"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Global Search Palette (opens with Ctrl+K or Cmd+K) -->
@@ -4270,5 +4426,7 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
 
     <script src="simulator.js"></script>
     <script src="app.js"></script>
+    <script src="simulator64.js"></script>
+    <script src="app64.js"></script>
 </body>
 </html>
