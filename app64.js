@@ -100,44 +100,84 @@ end:
         });
     }
 
-    function refreshTrace(resultText) {
+    function refreshTrace() {
         document.querySelectorAll('#sb64-trace .mini-inst').forEach(r => {
             const i = parseInt(r.dataset.idx);
             r.classList.toggle('current', i === pc && !sim.finished);
             r.classList.toggle('executed', i < pc);
         });
-        if (resultText !== undefined && pc > 0) {
-            const prev = document.querySelector(`#sb64-trace .mini-inst[data-idx="${pc - 1}"] .mini-result`);
-            // find the actually-executed line (skip blanks/labels handled by engine)
-        }
     }
 
+    const GP_ALWAYS = ['rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi'];
+    const GP_NEW = ['r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'];
+
     function renderRegs() {
+        // pointer cards (RSP / RBP)
+        const rspCard = document.getElementById('sb64-rsp-card');
+        const rbpCard = document.getElementById('sb64-rbp-card');
+        document.getElementById('sb64-rsp').textContent = fmtVal(sim.getReg('rsp'), 64);
+        document.getElementById('sb64-rbp').textContent = fmtVal(sim.getReg('rbp'), 64);
+        rspCard.classList.toggle('changed', sim.changed.has('rsp'));
+        rbpCard.classList.toggle('changed', sim.changed.has('rbp'));
+
+        // general-purpose register grid: always show the core six, plus any
+        // new register (R8-R15) the program has touched.
+        const shown = sim.shown;
+        const list = GP_ALWAYS.concat(GP_NEW.filter(r => shown.has(r)));
         const body = document.getElementById('sb64-regs');
-        const active = sim.getActiveRegs();
-        if (!active.length) {
-            body.innerHTML = '<div class="sim-reg-row" style="color:var(--text-dim);font-size:0.8rem">No registers set yet</div>';
-        } else {
-            body.innerHTML = '';
-            active.forEach(name => {
-                const row = document.createElement('div');
-                const isChanged = sim.changed.has(name);
-                row.className = 'sim-reg-row' + (isChanged ? ' changed' : '');
-                row.innerHTML = `<span class="sim-reg-name">${name.toUpperCase()}</span>` +
-                                `<span class="sim-reg-value">${fmtVal(sim.getReg(name), 64)}</span>`;
-                body.appendChild(row);
-            });
-        }
+        body.innerHTML = '';
+        list.forEach(name => {
+            const cell = document.createElement('div');
+            const touched = shown.has(name);
+            cell.className = 'sb64-reg' + (sim.changed.has(name) ? ' changed' : (touched ? '' : ' dim'));
+            cell.innerHTML = `<span class="sb64-reg-name">${name.toUpperCase()}</span>` +
+                             `<span class="sb64-reg-val">${fmtVal(sim.getReg(name), 64)}</span>`;
+            body.appendChild(cell);
+        });
+
         // flags
-        const fbox = document.getElementById('sb64-flags');
-        fbox.style.display = '';
-        document.getElementById('sb64-flags-body').innerHTML =
+        document.getElementById('sb64-flags').innerHTML =
             ['ZF', 'CF', 'SF', 'OF'].map(f =>
-                `<div class="sim-reg-row"><span class="sim-reg-name">${f}</span><span class="sim-reg-value">${sim.flags[f]}</span></div>`
+                `<span class="sb64-flag${sim.flags[f] ? ' set' : ''}"><b>${f}</b> ${sim.flags[f]}</span>`
             ).join('');
+
+        renderStack();
+    }
+
+    function renderStack() {
+        const el = document.getElementById('sb64-stack');
+        const entries = sim.getStackEntries();
+        if (!entries.length) {
+            el.innerHTML = '<div class="sb64-empty">Stack is empty. PUSH, CALL, or a prologue will fill it.</div>';
+            return;
+        }
+        el.innerHTML = entries.map(e => {
+            const isRsp = e.label.includes('RSP'), isRbp = e.label.includes('RBP');
+            const cls = 'stack-entry' + (isRsp ? ' esp' : isRbp ? ' ebp' : '');
+            return `<div class="${cls}">` +
+                   `<span style="color:var(--text-dim)">0x${e.addr.toString(16).toUpperCase()}</span>` +
+                   `<span style="color:var(--text)">0x${e.val.toString(16).toUpperCase()}</span>` +
+                   `<span style="color:var(--accent)">${esc(e.label)}</span></div>`;
+        }).join('');
     }
 
     function explain(html) { document.getElementById('sb64-explain').innerHTML = html; }
+
+    function logLine(lineText, result) {
+        const log = document.getElementById('sb64-log');
+        if (log.querySelector('em')) log.innerHTML = '';
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:0.15rem 0;border-bottom:1px solid rgba(69,71,90,0.3)';
+        const color = result.error ? 'var(--red)' : 'var(--text-dim)';
+        row.innerHTML = `<span style="color:var(--green)">${esc(lineText)}</span>` +
+                        (result.description ? ` <span style="color:${color}">&mdash; ${esc(result.description)}</span>` : '');
+        log.appendChild(row);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+        document.getElementById('sb64-log').innerHTML = '<em style="color:var(--text-dim)">No instructions executed yet.</em>';
+    }
 
     function load() {
         const code = document.getElementById('sb64-code').value;
@@ -149,7 +189,8 @@ end:
         buildTrace();
         refreshTrace();
         renderRegs();
-        explain('<h4>Loaded</h4><p>Program loaded. Click <strong>Step</strong> to execute one instruction at a time, or <strong>Run All</strong> to run to the end.</p>');
+        clearLog();
+        explain('<h4>Loaded</h4><p class="sp-explain-desc">Program loaded. Click <strong>Step</strong> to execute one instruction at a time, or <strong>Run All</strong> to run to the end.</p>');
         setButtons(true);
     }
 
@@ -159,7 +200,6 @@ end:
         if (!loaded || sim.finished) return;
         const idx = pc;
         const lineText = (lines[idx] || '').trim();
-        // execute manually to capture result, then advance pc like step()
         sim.jumpTarget = null;
         const result = sim.execute(lines[idx]);
         if (sim.jumpTarget !== null) sim.pc = sim.jumpTarget; else sim.pc = idx + 1;
@@ -167,9 +207,13 @@ end:
         pc = sim.pc;
         refreshTrace();
         renderRegs();
-        if (result && (result.description || result.error)) {
-            const cls = result.error ? 'color:var(--red,#f38ba8)' : '';
-            explain(`<h4>${result.error ? 'Error' : 'Executed'}</h4><pre class="code-block" style="margin:0 0 .5rem">${esc(lineText)}</pre><p style="${cls}">${esc(result.description || '')}</p>`);
+        const isRealInstr = lineText && !lineText.startsWith(';') && !lineText.startsWith('#') && !/^\w+:$/.test(lineText);
+        if (isRealInstr && (result.description || result.error)) {
+            const cls = result.error ? 'color:var(--red)' : '';
+            explain(`<h4>${result.error ? 'Error' : 'Executed'}</h4>` +
+                    `<div class="sp-explain-asm">${esc(lineText)}</div>` +
+                    `<p class="sp-explain-desc" style="${cls}">${esc(result.description || '')}</p>`);
+            logLine(lineText, result);
         }
         if (sim.finished) { setButtons(true, true); }
     }
@@ -182,18 +226,18 @@ end:
     }
 
     function explainHtmlDone() {
-        return '<h4>Finished</h4><p>Program reached the end. Click <strong>Reset</strong> to run it again, or edit the code and <strong>Load &amp; Reset</strong>.</p>';
+        return '<h4>Finished</h4><p class="sp-explain-desc">Program reached the end. Click <strong>Reset</strong> to run it again, or edit the code and <strong>Load &amp; Reset</strong>.</p>';
     }
 
     function reset() {
         if (!loaded) return;
         sim.loadProgram(document.getElementById('sb64-code').value);
         pc = sim.pc;
-        lastResult = null;
         buildTrace();
         refreshTrace();
         renderRegs();
-        explain('<h4>Reset</h4><p>Back to the start. Click <strong>Step</strong> to begin.</p>');
+        clearLog();
+        explain('<h4>Reset</h4><p class="sp-explain-desc">Back to the start. Click <strong>Step</strong> to begin.</p>');
         setButtons(true);
     }
 
@@ -222,11 +266,22 @@ end:
                 document.querySelectorAll('#sb64-regbox .format-btn').forEach(x => x.classList.remove('active'));
                 b.classList.add('active');
                 fmt = b.dataset.fmt;
-                if (loaded) renderRegs();
+                if (sim) renderRegs();
             });
         });
-        // start with a friendly default program
+        // collapsible Key Facts panel
+        const factsToggle = document.getElementById('sb64-facts-toggle');
+        if (factsToggle) {
+            factsToggle.addEventListener('click', () => {
+                const body = document.getElementById('sb64-facts-body');
+                const hidden = body.classList.toggle('collapsed');
+                factsToggle.textContent = hidden ? 'Show' : 'Hide';
+            });
+        }
+        // start with a friendly default program and a live (zeroed) register view
         if (!codeEl.value.trim()) codeEl.value = SANDBOX64_EXAMPLES['widths'];
+        sim = new AsmSimulator64();
+        renderRegs();
         setButtons(false);
     }
 

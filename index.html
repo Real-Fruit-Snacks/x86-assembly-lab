@@ -4345,30 +4345,43 @@ jnz short loc_401024            ; Step 4: If not, jump to Endian(B)</pre>
         <!-- x64 Sandbox (64-bit engine) -->
         <section id="sandbox64" class="section">
             <h1>x64 Sandbox <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; 64-bit simulator</span></h1>
-            <p>A full 64-bit register machine: <code>RAX</code>&hellip;<code>R15</code>, 64-bit values, and the x64 rules in action. This is a separate engine from the 32-bit Sandbox &mdash; values are true 64-bit, so things like writing <code>EAX</code> zeroing the upper half of <code>RAX</code> behave correctly. New to the differences? Read <a href="#learn-x64">x64 Differences</a> first. Phase 1 supports the core instruction set (mov/movzx/movsx, arithmetic, logic, shifts/rotates, cmp/test, push/pop, call/ret/leave, jumps, lea, 2/3-operand imul).</p>
+            <p>A true 64-bit register machine. Step real x86-64 code and watch all sixteen registers, the flags, and the stack update live. This runs on a separate engine from the 32-bit Sandbox, so 64-bit rules behave correctly &mdash; including a 32-bit write (like <code>mov eax, ...</code>) zeroing the upper half of the full register. New to the differences? Read <a href="#learn-x64">x64 Differences</a> first.</p>
 
-            <div class="sandbox-layout">
-                <div class="sandbox-left">
-                    <div class="sandbox-input-area">
-                        <div class="sandbox-toolbar">
+            <div class="sp-facts-card">
+                <div class="sp-facts-header">
+                    <h4>Key Facts About x86-64</h4>
+                    <button class="sim-btn" id="sb64-facts-toggle">Hide</button>
+                </div>
+                <div class="sp-facts-body" id="sb64-facts-body">
+                    <div class="sp-fact"><span class="sp-fact-num">1</span><div><strong>Registers grew E&rarr;R.</strong> <code>EAX</code> became <code>RAX</code> (64-bit). The old names still work and address the lower bits.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">2</span><div><strong>A 32-bit write zeroes the upper half.</strong> <code>mov eax, 1</code> clears the top 32 bits of <code>RAX</code>. 16- and 8-bit writes preserve the rest.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">3</span><div><strong>Eight new registers.</strong> <code>R8</code>&ndash;<code>R15</code>, with <code>R8D</code>/<code>R8W</code>/<code>R8B</code> for the lower 32/16/8 bits (no high-byte form).</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">4</span><div><strong>Args go in registers.</strong> Windows x64 passes the first four in <code>RCX, RDX, R8, R9</code>; the return value comes back in <code>RAX</code>.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">5</span><div><strong>The stack is 8-byte.</strong> <code>PUSH</code>/<code>POP</code> move <code>RSP</code> by 8, and it still grows downward toward lower addresses.</div></div>
+                    <div class="sp-fact"><span class="sp-fact-num">6</span><div><strong>Same mnemonics &amp; flags.</strong> mov/add/xor/cmp/jcc/call/ret all behave as you learned in 32-bit. Phase 1 supports the core set (no mul/div or conversions yet).</div></div>
+                </div>
+            </div>
+
+            <div class="sb64-grid">
+                <div class="sb64-left">
+                    <div class="sb64-panel">
+                        <div class="sb64-toolbar">
                             <span class="toolbar-label">Assembly Code (x86-64)</span>
-                            <div class="sandbox-toolbar-btns">
-                                <select id="sb64-examples">
-                                    <option value="">Load Example...</option>
-                                    <optgroup label="Registers">
-                                        <option value="widths">Register widths &amp; sub-register rules</option>
-                                        <option value="newregs">New registers R8&ndash;R15</option>
-                                    </optgroup>
-                                    <optgroup label="Core">
-                                        <option value="arith64">64-bit arithmetic &amp; wraparound</option>
-                                        <option value="loop64">Loop (sum 1..5)</option>
-                                        <option value="callret64">CALL &amp; RET (double a value)</option>
-                                    </optgroup>
-                                    <optgroup label="Calling Convention">
-                                        <option value="winabi">Windows x64 (RCX, RDX, R8, R9)</option>
-                                    </optgroup>
-                                </select>
-                            </div>
+                            <select id="sb64-examples">
+                                <option value="">Load Example...</option>
+                                <optgroup label="Registers">
+                                    <option value="widths">Register widths &amp; sub-register rules</option>
+                                    <option value="newregs">New registers R8&ndash;R15</option>
+                                </optgroup>
+                                <optgroup label="Core">
+                                    <option value="arith64">64-bit arithmetic &amp; wraparound</option>
+                                    <option value="loop64">Loop (sum 1..5)</option>
+                                    <option value="callret64">CALL &amp; RET (double a value)</option>
+                                </optgroup>
+                                <optgroup label="Calling Convention">
+                                    <option value="winabi">Windows x64 (RCX, RDX, R8, R9)</option>
+                                </optgroup>
+                            </select>
                         </div>
                         <textarea id="sb64-code" spellcheck="false" placeholder="Type x86-64 assembly here, one instruction per line.
 
@@ -4376,21 +4389,22 @@ Examples:
   mov rax, 0x1122334455667788
   mov r8, 100
   add rax, r8"></textarea>
-                    </div>
-                    <div class="sandbox-controls">
-                        <button id="sb64-run" class="sim-btn primary">Load &amp; Reset</button>
-                        <button id="sb64-step" class="sim-btn" disabled>Step</button>
-                        <button id="sb64-runall" class="sim-btn" disabled>Run All</button>
-                        <button id="sb64-reset" class="sim-btn danger" disabled>Reset</button>
+                        <div class="sb64-controls">
+                            <button id="sb64-run" class="sim-btn primary">Load &amp; Reset</button>
+                            <button id="sb64-step" class="sim-btn" disabled>Step</button>
+                            <button id="sb64-runall" class="sim-btn" disabled>Run All</button>
+                            <button id="sb64-reset" class="sim-btn danger" disabled>Reset</button>
+                        </div>
                     </div>
                     <div id="sb64-trace" class="sandbox-trace"></div>
                 </div>
-                <div class="sandbox-right">
-                    <div id="sb64-explain" class="sim-explain">
-                        <h4>Getting Started</h4>
-                        <p>Type or paste 64-bit assembly, then click <strong>Load &amp; Reset</strong>. Use <strong>Step</strong> to execute one instruction at a time, or load an example from the menu.</p>
+
+                <div class="sb64-right">
+                    <div class="sb64-ptr-cards">
+                        <div class="sb64-ptr" id="sb64-rsp-card"><span class="sb64-ptr-name">RSP</span><span class="sb64-ptr-val" id="sb64-rsp">0x0</span></div>
+                        <div class="sb64-ptr" id="sb64-rbp-card"><span class="sb64-ptr-name">RBP</span><span class="sb64-ptr-val" id="sb64-rbp">0x0</span></div>
                     </div>
-                    <div id="sb64-regbox" class="sim-reg-box">
+                    <div class="sim-reg-box" id="sb64-regbox">
                         <div class="sim-reg-header">
                             <h3>Registers (64-bit)</h3>
                             <div class="format-toggle">
@@ -4399,13 +4413,37 @@ Examples:
                                 <button class="format-btn" data-fmt="bin">BIN</button>
                             </div>
                         </div>
-                        <div id="sb64-regs" class="sim-reg-body"></div>
+                        <div id="sb64-regs" class="sb64-reg-grid"></div>
                     </div>
-                    <div id="sb64-flags" class="sim-flags-box" style="display:none">
+                    <div class="sim-reg-box">
                         <div class="sim-reg-header"><h3>Flags</h3></div>
-                        <div id="sb64-flags-body" class="sim-reg-body"></div>
+                        <div id="sb64-flags" class="sb64-flags"></div>
+                    </div>
+                    <div class="sim-reg-box">
+                        <div class="sim-reg-header"><h3>Stack (top = RSP)</h3></div>
+                        <div id="sb64-stack" class="stack-diagram" style="margin:0;border:none"></div>
                     </div>
                 </div>
+            </div>
+
+            <div class="sp-explain-box" id="sb64-explain">
+                <h4>Getting Started</h4>
+                <p>Type or paste 64-bit assembly (or pick an example), then click <strong>Load &amp; Reset</strong>. Use <strong>Step</strong> to execute one instruction at a time, or <strong>Run All</strong> to run to the end.</p>
+            </div>
+
+            <div class="sim-reg-box" style="margin-top:0.8rem">
+                <div class="sim-reg-header"><h3>Action Log</h3></div>
+                <div id="sb64-log" class="sp-log" style="padding:0.5rem 0.8rem"><em style="color:var(--text-dim)">No instructions executed yet.</em></div>
+            </div>
+
+            <div class="concept-box">
+                <h3>Try These</h3>
+                <ul>
+                    <li>Load <strong>Register widths</strong> and step it: watch <code>mov eax, ...</code> wipe the upper half of <code>RAX</code>, while <code>mov ax, ...</code> leaves it intact.</li>
+                    <li>Load <strong>64-bit arithmetic</strong>: add 1 to <code>0xFFFFFFFFFFFFFFFF</code> and see it wrap to 0 with <code>CF</code> set &mdash; a value no 32-bit register could hold.</li>
+                    <li>Load <strong>Windows x64</strong>: note the arguments go into <code>RCX/RDX/R8/R9</code> instead of being pushed, and the result comes back in <code>RAX</code>.</li>
+                    <li>Type your own: <code>mov r8, 0xDEADBEEFCAFE</code> then <code>mov r8d, 1</code> &mdash; the upper half vanishes.</li>
+                </ul>
             </div>
         </section>
 
