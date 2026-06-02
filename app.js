@@ -1382,9 +1382,12 @@ const REF_DATA = [
         { name: 'NEG dest', desc: "Two's complement negate: dest = -dest. Sets all flags. CF=1 unless dest was 0.", ex: 'neg eax → eax = -eax' },
         { name: 'MUL src', desc: 'Unsigned multiply: EDX:EAX = EAX * src. Always destroys EDX even if upper half is 0. Sets CF and OF if result overflows EAX.', ex: 'mul ecx → EDX:EAX = EAX * ECX' },
         { name: 'IMUL (1/2/3 operand)', desc: 'Signed multiply. 1-op: EDX:EAX = EAX * src (destroys EDX). 2-op: dest *= src (EDX safe). 3-op: dest = src * imm (EDX safe).', ex: 'imul eax, edx, 14 → eax = edx * 14' },
-        { name: 'DIV src', desc: 'Unsigned divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST zero EDX first (xor edx,edx). Divide by zero crashes.', ex: 'div ecx → EAX = quotient, EDX = remainder' },
-        { name: 'IDIV src', desc: 'Signed divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST use CDQ first. Divide by zero crashes.', ex: 'cdq / idiv ecx → signed quotient + remainder' },
+        { name: 'DIV src', desc: 'Unsigned divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST zero EDX first (xor edx,edx). Dividing by zero raises an error (a real CPU triggers a divide fault).', ex: 'div ecx → EAX = quotient, EDX = remainder' },
+        { name: 'IDIV src', desc: 'Signed divide EDX:EAX by src. EAX = quotient, EDX = remainder. You MUST use CDQ first. Dividing by zero raises an error (a real CPU triggers a divide fault).', ex: 'cdq / idiv ecx → signed quotient + remainder' },
         { name: 'CDQ', desc: 'Sign-extend EAX into EDX:EAX. If EAX is negative, EDX = 0xFFFFFFFF; if positive, EDX = 0. Does NOT set flags. Always use immediately before IDIV.', ex: 'cdq → EDX = sign extension of EAX' },
+        { name: 'CBW', desc: 'Convert Byte to Word: sign-extend AL into AX. The accumulator-only shorthand for MOVSX when widening AL. Does NOT set flags.', ex: 'cbw → AX = sign extension of AL' },
+        { name: 'CWDE', desc: 'Convert Word to Doubleword Extended: sign-extend AX into EAX. Widens within the same accumulator register. Does NOT set flags.', ex: 'cwde → EAX = sign extension of AX' },
+        { name: 'CWD', desc: 'Convert Word to Doubleword: sign-extend AX into the DX:AX register pair (DX = sign bits). The 16-bit equivalent of CDQ, used before a 16-bit IDIV. Does NOT set flags.', ex: 'cwd → DX:AX = sign extension of AX' },
     ]},
     { cat: 'Bitwise Logic', entries: [
         { name: 'AND dest, src', desc: 'Bitwise AND. Result bit is 1 only if both bits are 1. Sets ZF, SF, clears CF and OF. Use for masking (isolating bits).', ex: 'and eax, 0xFF → keep only low byte' },
@@ -1394,7 +1397,7 @@ const REF_DATA = [
         { name: 'TEST a, b', desc: 'Compute a AND b, set flags (ZF, SF), discard result. TEST reg,reg sets ZF=1 if the register is zero. Does NOT modify operands.', ex: 'test eax, eax → ZF=1 if eax==0' },
     ]},
     { cat: 'Shifts & Rotates', entries: [
-        { name: 'SHL dest, count', desc: 'Shift left. Multiply by 2^count. Zeros fill from right. Sets CF to the last bit shifted out. Sets ZF, SF, OF.', ex: 'shl eax, 2 → eax *= 4' },
+        { name: 'SHL / SAL dest, count', desc: 'Shift left (SAL is an alias — identical operation). Multiply by 2^count. Zeros fill from right. Sets CF to the last bit shifted out. Sets ZF, SF, OF.', ex: 'shl eax, 2 → eax *= 4' },
         { name: 'SHR dest, count', desc: 'Logical shift right. Unsigned divide by 2^count. Zeros fill from left. Sets CF to last bit shifted out.', ex: 'shr eax, 3 → eax /= 8 (unsigned)' },
         { name: 'SAR dest, count', desc: 'Arithmetic shift right. Signed divide by 2^count. Sign bit fills from left (preserves sign). Sets CF to last bit shifted out.', ex: 'sar ecx, 1 → ecx /= 2 (signed)' },
         { name: 'ROL dest, count', desc: 'Rotate left. Bits shift left; top bit wraps to bottom (no bits lost). CF = last bit rotated. Common in crypto/hashing.', ex: 'rol al, 1 → circular shift left' },
@@ -1402,13 +1405,13 @@ const REF_DATA = [
     ]},
     { cat: 'Compare & Jump', entries: [
         { name: 'CMP a, b', desc: 'Compare: computes a - b, sets all flags (ZF, SF, CF, OF), discards result. Always used before conditional jumps.', ex: 'cmp eax, 10 → flags set based on eax-10' },
-        { name: 'JMP target', desc: 'Unconditional jump. Always taken. Like "goto" in high-level code.', ex: 'jmp label → always jumps' },
+        { name: 'JMP target', desc: 'Unconditional jump — always taken, like "goto". Target can be a label, a register, or memory: jmp eax and jmp [table + eax*4] are indirect jumps (the latter is how compilers dispatch a switch via a jump table).', ex: 'jmp label · jmp [jtable + eax*4] → indirect' },
         { name: 'JE / JZ', desc: 'Jump if Equal / Zero (ZF=1). After CMP a,b: jump if a == b.', ex: 'cmp eax, 5 / je target → jump if eax==5' },
         { name: 'JNE / JNZ', desc: 'Jump if Not Equal / Not Zero (ZF=0). After CMP a,b: jump if a != b.', ex: 'cmp eax, 5 / jne target → jump if eax!=5' },
-        { name: 'JB / JC', desc: 'Jump if Below / Carry (CF=1). Unsigned comparison. After CMP a,b: jump if a < b.', ex: 'cmp eax, ebx / jb target → unsigned less' },
+        { name: 'JB / JC / JNAE', desc: 'Jump if Below / Carry / Not Above-or-Equal (CF=1). Unsigned comparison. After CMP a,b: jump if a < b.', ex: 'cmp eax, ebx / jb target → unsigned less' },
         { name: 'JBE / JNA', desc: 'Jump if Below or Equal (CF=1 or ZF=1). Unsigned. After CMP: a <= b.', ex: 'cmp eax, ebx / jbe target → unsigned <='},
         { name: 'JA / JNBE', desc: 'Jump if Above (CF=0 and ZF=0). Unsigned. After CMP: a > b.', ex: 'cmp eax, ebx / ja target → unsigned greater' },
-        { name: 'JAE / JNB', desc: 'Jump if Above or Equal (CF=0). Unsigned. After CMP: a >= b.', ex: 'cmp eax, ebx / jae target → unsigned >=' },
+        { name: 'JAE / JNB / JNC', desc: 'Jump if Above or Equal / Not Below / No Carry (CF=0). Unsigned. After CMP: a >= b.', ex: 'cmp eax, ebx / jae target → unsigned >=' },
         { name: 'JL / JNGE', desc: 'Jump if Less (SF!=OF). Signed comparison. After CMP a,b: jump if a < b (treating both as signed).', ex: 'cmp eax, ebx / jl target → signed less' },
         { name: 'JLE / JNG', desc: 'Jump if Less or Equal (ZF=1 or SF!=OF). Signed. After CMP: a <= b.', ex: 'cmp eax, ebx / jle target → signed <=' },
         { name: 'JG / JNLE', desc: 'Jump if Greater (ZF=0 and SF==OF). Signed. After CMP: a > b.', ex: 'cmp eax, ebx / jg target → signed greater' },
@@ -1417,10 +1420,13 @@ const REF_DATA = [
         { name: 'JNS', desc: 'Jump if Not Sign (SF=0). Result is non-negative (high bit clear).', ex: 'sub eax, ebx / jns target → jump if result positive or zero' },
     ]},
     { cat: 'Stack & Control', entries: [
-        { name: 'CALL target', desc: 'Push return address (address of next instruction) onto stack, then jump to target. ESP decreases by 4. Does NOT set flags.', ex: 'call func → push ret_addr; jmp func' },
+        { name: 'CALL target', desc: 'Push return address (address of next instruction) onto stack, then jump to target. ESP decreases by 4. Does NOT set flags. Target may be a label, register, or memory (call eax, call [vtable+8]) — indirect calls are how function pointers and C++ virtual methods dispatch.', ex: 'call func → push ret_addr; jmp func' },
         { name: 'RET / RETN', desc: 'Pop return address from stack, jump to it. RET N also adds N to ESP (callee cleanup, used by stdcall). Does NOT set flags.', ex: 'ret → pop addr; jmp addr' },
         { name: 'LEAVE', desc: 'Shorthand for: mov esp, ebp; pop ebp. Restores the stack frame. Used in function epilogues. Does NOT set flags.', ex: 'leave → restore frame; equivalent to mov esp,ebp / pop ebp' },
         { name: 'NOP', desc: 'No operation. Does absolutely nothing. Opcode 0x90. Sometimes used as padding; INT 3 (opcode 0xCC) is used for breakpoints.', ex: 'nop → nothing happens' },
+    ]},
+    { cat: 'Data Directives', entries: [
+        { name: 'DB / DW / DD / DQ value, ...', desc: 'Define data in memory (not executable instructions): DB = bytes, DW = 2-byte words, DD = 4-byte dwords, DQ = 8-byte qwords. A label naming the data becomes its address. Used to lay out tables, strings, and constants — for example a jump table: jtable: dd case0, case1, case2.', ex: 'jtable: dd case0, case1 → table of code addresses' },
     ]},
 ];
 

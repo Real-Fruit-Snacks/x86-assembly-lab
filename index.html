@@ -975,7 +975,6 @@ Examples:
                             <li><code>CMP</code> (= SUB that discards result)</li>
                             <li><code>TEST</code> (= AND that discards result)</li>
                             <li><code>SHL, SHR, SAR</code></li>
-                            <li><code>MUL, IMUL, DIV, IDIV</code></li>
                         </ul>
                     </div>
                     <div class="flag-col no">
@@ -993,6 +992,7 @@ Examples:
                     </div>
                 </div>
                 <div class="important-note">This is critical for branching! If you see <code>MOV</code> between a <code>CMP</code> and a <code>JE</code>, the MOV does NOT change the flags &mdash; the jump still uses the flags from the CMP.</div>
+                <div class="important-note"><strong>MUL, IMUL, DIV, IDIV are a special case.</strong> MUL/IMUL set <code>CF</code> and <code>OF</code> (to flag when the result needed the upper half) but leave <code>ZF</code>, <code>SF</code>, and the rest <em>undefined</em>. DIV/IDIV leave <em>all</em> flags undefined. The practical rule: never branch on flags right after a multiply or divide &mdash; do an explicit <code>CMP</code> or <code>TEST</code> first.</div>
             </div>
 
             <div class="concept-box">
@@ -3761,24 +3761,24 @@ mov dword ptr [eax+4], 20</pre>
                             <td>dest = ST0, then pop</td>
                         </tr>
                         <tr>
-                            <td><code>FADD</code></td>
-                            <td>Add top two values on FPU stack</td>
-                            <td>ST1 = ST1 + ST0, pop</td>
+                            <td><code>FADD</code> / <code>FADDP</code></td>
+                            <td>Add. Plain FADD adds into ST0; the <code>P</code> variant adds then pops.</td>
+                            <td>FADDP: ST1 = ST1 + ST0, then pop</td>
                         </tr>
                         <tr>
-                            <td><code>FSUB</code></td>
-                            <td>Subtract</td>
-                            <td>ST1 = ST1 - ST0, pop</td>
+                            <td><code>FSUB</code> / <code>FSUBP</code></td>
+                            <td>Subtract (P variant pops after).</td>
+                            <td>FSUBP: ST1 = ST1 - ST0, then pop</td>
                         </tr>
                         <tr>
-                            <td><code>FMUL</code></td>
-                            <td>Multiply</td>
-                            <td>ST1 = ST1 * ST0, pop</td>
+                            <td><code>FMUL</code> / <code>FMULP</code></td>
+                            <td>Multiply (P variant pops after).</td>
+                            <td>FMULP: ST1 = ST1 * ST0, then pop</td>
                         </tr>
                         <tr>
-                            <td><code>FDIV</code></td>
-                            <td>Divide</td>
-                            <td>ST1 = ST1 / ST0, pop</td>
+                            <td><code>FDIV</code> / <code>FDIVP</code></td>
+                            <td>Divide (P variant pops after).</td>
+                            <td>FDIVP: ST1 = ST1 / ST0, then pop</td>
                         </tr>
                         <tr><td><code>FSQRT</code></td><td>Square root of ST0</td><td>ST0 = sqrt(ST0)</td></tr>
                     </tbody>
