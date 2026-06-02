@@ -3890,8 +3890,8 @@ FSTP dword ptr [ebp-10h]</pre>
         <!-- Learn: x64 Differences -->
         <section id="learn-x64" class="section">
             <h1>x64 Differences</h1>
-            <div class="concept-box" style="border-left-color: var(--yellow);">
-                <p style="margin:0;"><strong>Reference only.</strong> This simulator models 32-bit x86 (IA-32) &mdash; registers like EAX, a 4-byte word, and the cdecl/stdcall conventions. It does <em>not</em> execute 64-bit code. This page is a map of what changes when you move to x64, so a 64-bit listing in IDA or Ghidra doesn't catch you off guard. Everything else you've learned here still applies.</p>
+            <div class="concept-box" style="border-left-color: var(--green);">
+                <p style="margin:0;"><strong>Now interactive.</strong> The mini-simulators on this page run on a real 64-bit engine &mdash; step through them to watch the x64 rules play out. For free-form experimentation (push/pop, call/return, division, building a stack frame), open the <a href="#sandbox64">x64 Playground</a>. Most of what you learned in the 32-bit lab carries straight over; this page focuses on what actually changes.</p>
             </div>
 
             <p>x86-64 (also called x64, AMD64, or Intel 64) is the 64-bit extension of the architecture this lab teaches. Most of what you know transfers directly: the same mnemonics, the same flags, the same stack discipline, the same read-forwards-solve-backwards analysis skills. What changes is the <em>width</em> of registers, the <em>number</em> of them, and the <em>calling convention</em>.</p>
@@ -3914,6 +3914,14 @@ FSTP dword ptr [ebp-10h]</pre>
                     </tbody>
                 </table>
                 <p>One quirk worth knowing: writing to a 32-bit register in x64 (<code>mov eax, 5</code>) <strong>zeroes the upper 32 bits</strong> of the full RAX. Writing to a 16- or 8-bit sub-register does not. This trips up beginners reading 64-bit code.</p>
+                <div class="mini-sim-64" data-code="mov rax, 0x1122334455667788&#10;mov eax, 0xFFFFFFFF&#10;mov rax, 0x1122334455667788&#10;mov ax, 0xBEEF&#10;mov al, 0x99">
+                    <div class="mini-sim-header">
+                        <span>Step it: the upper bits vanish on a 32-bit write, but survive a 16/8-bit write</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">
@@ -3929,6 +3937,14 @@ FSTP dword ptr [ebp-10h]</pre>
                     </tbody>
                 </table>
                 <p>Unlike the legacy registers, there is <strong>no way to access a &ldquo;high byte&rdquo;</strong> of the new registers (there is no R8H to mirror AH). More registers means compilers spill fewer values to the stack, so x64 functions often pass and hold more in registers than the 32-bit code you've been reading.</p>
+                <div class="mini-sim-64" data-code="mov r8, 0xCAFEF00DDEADBEEF&#10;mov r9d, 0x12345678&#10;mov r10w, 0xABCD&#10;mov r11b, 0x42">
+                    <div class="mini-sim-header">
+                        <span>Step it: the new registers and their D/W/B sub-parts</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">
@@ -3946,11 +3962,40 @@ FSTP dword ptr [ebp-10h]</pre>
                     </tbody>
                 </table>
                 <p>So when you read an x64 function, the arguments aren't a tidy stack of <code>push</code>es before the <code>call</code> &mdash; they're values loaded into <code>rcx</code>, <code>rdx</code>, and friends just before it. Recognizing that pattern is the main adjustment.</p>
+                <div class="mini-sim-64" data-code="mov rcx, 10&#10;mov rdx, 20&#10;mov r8, 30&#10;mov r9, 40&#10;mov rax, rcx&#10;add rax, rdx&#10;add rax, r8&#10;add rax, r9">
+                    <div class="mini-sim-header">
+                        <span>Step it: Windows x64 passes args in RCX/RDX/R8/R9; the sum lands in RAX (the return register)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">
                 <h3>4. RIP-Relative Addressing</h3>
                 <p>x64 code commonly addresses data relative to the instruction pointer itself: <code>lea rax, [rip+0x2030]</code>. This makes code position-independent (it works wherever the loader places it), which is why you'll see it everywhere in 64-bit disassembly where 32-bit code would have used a hardcoded absolute address like <code>ds:[004030A0]</code>. When you see <code>[rip+&hellip;]</code>, read it as &ldquo;a global, addressed relatively.&rdquo;</p>
+                <div class="mini-sim-64" data-code="mov rbx, 0x10&#10;lea rax, [rbx + rbx*2 + 8]">
+                    <div class="mini-sim-header">
+                        <span>Step it: LEA computes an address (base + index*scale + disp) without touching memory</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>5. Full-Width 64-bit Math</h3>
+                <p>Registers hold 64-bit values exactly &mdash; far beyond the ~4.3 billion ceiling of a 32-bit register &mdash; and the same <code>mul</code>/<code>div</code> machinery applies, just twice as wide. Signed division still uses the sign-extend-then-divide pattern: <code>cqo</code> spreads RAX's sign across RDX, forming the 128-bit <code>RDX:RAX</code> dividend that <code>idiv</code> needs.</p>
+                <div class="mini-sim-64" data-code="mov rax, 1000000000000&#10;imul rax, rax, 3&#10;mov rbx, -7&#10;mov rax, -100&#10;cqo&#10;idiv rbx">
+                    <div class="mini-sim-header">
+                        <span>Step it: a trillion-scale multiply, then signed division (-100 / -7 = 14 r -2)</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
             </div>
 
             <div class="concept-box">

@@ -227,7 +227,63 @@
 
     function reset() { $('sb64-scenario').value = 'empty'; loadScenario(); }
 
+    // --- Interactive 64-bit mini-simulators (in the x64 tutorial pages) ---
+    // Mirrors the 32-bit initMiniSims pattern but drives AsmSimulator64 and
+    // shows 64-bit register values in hex (decimal is unwieldy at 64-bit).
+    function initMiniSims64() {
+        document.querySelectorAll('.mini-sim-64').forEach(el => {
+            const code = el.dataset.code || '';
+            const lines = code.split('\n').filter(l => l.trim());
+            const msim = new AsmSimulator64();
+            let mpc = 0;
+            const body = el.querySelector('.mini-sim-body');
+            const stepBtn = el.querySelector('.mini-step');
+            const resetBtn = el.querySelector('.mini-reset');
+            if (!body || !stepBtn || !resetBtn) return;
+            const M64 = (1n << 64n) - 1n;
+
+            function hl(line) {
+                const m = line.match(/^(\s*)(\w+)(.*)$/);
+                if (!m) return esc(line);
+                return `${m[1]}<span class="op">${esc(m[2])}</span>${esc(m[3])}`;
+            }
+            function render(lastDesc) {
+                body.innerHTML = '';
+                lines.forEach((line, i) => {
+                    const row = document.createElement('div');
+                    row.className = 'mini-inst' + (i < mpc ? ' executed' : '') + (i === mpc && mpc < lines.length ? ' current' : '');
+                    row.innerHTML = `<span class="mini-marker"></span><span class="mini-asm">${hl(line)}</span>` +
+                                    `<span class="mini-result">${(i === mpc - 1 && lastDesc) ? esc(lastDesc) : ''}</span>`;
+                    body.appendChild(row);
+                });
+                if (mpc > 0) {
+                    const regDiv = document.createElement('div');
+                    regDiv.style.cssText = 'padding:0.4rem 0.7rem;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:0.78rem;color:var(--text-dim);word-break:break-all;';
+                    regDiv.innerHTML = msim.getActiveRegs().map(r =>
+                        `<span style="color:var(--purple)">${r.toUpperCase()}</span>=0x${(msim.getReg(r) & M64).toString(16).toUpperCase()}`
+                    ).join(' &nbsp; ');
+                    body.appendChild(regDiv);
+                }
+            }
+            function step() {
+                if (mpc >= lines.length) return;
+                const r = msim.execute(lines[mpc]);
+                mpc++;
+                render(r.description);
+            }
+            function reset() { msim.reset(); mpc = 0; render(); }
+            stepBtn.addEventListener('click', step);
+            resetBtn.addEventListener('click', reset);
+            render();
+        });
+    }
+
     function init() {
+        // Tutorial mini-sims live on a different section than the Playground and
+        // must initialize even if the Playground isn't on the page. Guard against
+        // double-init separately.
+        if (!window.__sb64MiniBooted) { window.__sb64MiniBooted = true; initMiniSims64(); }
+
         const root = $('sb64-regs');
         if (!root) return;
         if (root.dataset.booted) return;
