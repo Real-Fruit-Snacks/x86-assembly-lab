@@ -15,6 +15,8 @@ class AsmSimulator {
         this.changedMem = new Set();
         this.mem = {};          // addr (number) -> value (32-bit)
         this.labels = {};       // label name -> line index
+        this.labelAddr = {};    // label name -> synthetic address (code or data)
+        this.dataLines = new Set(); // line indices that are data directives (non-exec)
         this.lines = [];        // all lines (raw)
         this.pc = 0;            // program counter (line index)
         this.jumpTarget = null; // set by branch instructions
@@ -24,19 +26,78 @@ class AsmSimulator {
         this.callStack = [];    // return addresses for CALL/RET
     }
 
-    // Load a program: parse labels, store lines
+    // Synthetic address space so labels can be stored as data (jump tables)
+    // and indirect jumps can map an address back to a line.
+    //   code:  CODE_BASE + lineIndex   (kept tiny and distinct from stack/data)
+    //   data:  DATA_BASE + running offset (where dd/dq directives are laid out)
+    // Stack lives at espInit (0x0028FF80) and grows down, so these don't collide
+    // for any reasonable program.
+    static get CODE_BASE() { return 0x00401000; }
+    static get DATA_BASE() { return 0x00601000; }
+
+    _lineToAddr(line) { return AsmSimulator.CODE_BASE + line; }
+    _addrToLine(addr) {
+        const line = (addr >>> 0) - AsmSimulator.CODE_BASE;
+        return (line >= 0 && line < this.lines.length) ? line : null;
+    }
+
+    // Load a program: parse labels, lay out data directives, store lines
     loadProgram(code) {
         this.reset();
         this.lines = code.split('\n').map(l => l.trim());
-        // Build label map
+        // Pass 1: label name -> line index (used for direct jmp/call, unchanged)
         this.labels = {};
         this.lines.forEach((line, i) => {
             const m = line.match(/^(\w+):$/);
             if (m) this.labels[m[1].toLowerCase()] = i;
-            // Also handle "Label:" with trailing content on same line (rare)
             const m2 = line.match(/^(\w+):\s+(.+)/);
             if (m2) this.labels[m2[1].toLowerCase()] = i;
         });
+        // Pass 2: assign every label a synthetic address (default: code address),
+        // then lay out dd/dw/db/dq data directives into memory. A label that
+        // introduces a data directive is a DATA label and gets a data address.
+        this.labelAddr = {};
+        for (const name in this.labels) this.labelAddr[name] = this._lineToAddr(this.labels[name]);
+        const resolveEntry = (tok) => {
+            tok = tok.trim();
+            const low = tok.toLowerCase();
+            if (this.labels[low] !== undefined) return this._lineToAddr(this.labels[low]); // label -> code address
+            const v = this.parseVal(tok);
+            return v === null ? 0 : (v >>> 0);
+        };
+        const SIZES = { db: 1, dw: 2, dd: 4, dq: 8 };
+        let dataPtr = AsmSimulator.DATA_BASE;
+        let pendingLabel = null;   // a label-only line waiting to see if data follows
+        this.lines.forEach((line, i) => {
+            let t = line;
+            const ci = t.indexOf(';'); if (ci >= 0) t = t.slice(0, ci);
+            t = t.trim();
+            if (t === '') return;  // blank/comment: keep any pending label
+            let labelName = null;
+            const lm = t.match(/^(\w+):\s*(.*)$/);
+            if (lm) { labelName = lm[1].toLowerCase(); t = lm[2].trim(); }
+            const dm = t.match(/^(dd|dw|db|dq)\s+(.+)$/i);
+            if (dm) {
+                const size = SIZES[dm[1].toLowerCase()];
+                // A data label may sit on this line, or on a line just above it.
+                const dataLabel = labelName || pendingLabel;
+                if (dataLabel) this.labelAddr[dataLabel] = dataPtr;
+                pendingLabel = null;
+                const entries = dm[2].split(',').map(s => s.trim()).filter(Boolean);
+                for (const e of entries) {
+                    this.setMem(dataPtr, resolveEntry(e), size);
+                    dataPtr += size;
+                }
+                this.dataLines.add(i);
+            } else if (labelName && t === '') {
+                // label on its own line: remember it in case data directives follow
+                pendingLabel = labelName;
+            } else {
+                pendingLabel = null;  // a real instruction breaks the pending-data-label chain
+            }
+        });
+        this.changed = new Set();
+        this.changedMem = new Set();
         this.pc = 0;
     }
 
@@ -59,10 +120,11 @@ class AsmSimulator {
             this.pc++;
         }
 
-        // Skip labels, comments, empty lines automatically
+        // Skip labels, comments, empty lines, and data directives automatically
         while (this.pc < this.lines.length) {
             const next = this.lines[this.pc].trim();
-            if (!next || next.startsWith(';') || next.startsWith('#') || /^\w+:$/.test(next)) {
+            if (!next || next.startsWith(';') || next.startsWith('#') || /^\w+:$/.test(next) ||
+                this.dataLines.has(this.pc)) {
                 this.pc++;
             } else break;
         }
@@ -298,6 +360,11 @@ class AsmSimulator {
         // Label followed by instruction (strip label)
         const labelMatch = line.match(/^\w+:\s+(.+)/);
         if (labelMatch) line = labelMatch[1].trim();
+
+        // Data directives (dd/dw/db/dq) are laid out at load time; executing one is a no-op
+        if (/^(?:\w+:\s*)?(dd|dw|db|dq)\s+/i.test(line)) {
+            return { description: '(data)', changedRegs: [] };
+        }
 
         // Remove inline comments
         const commentIdx = line.indexOf(';');
@@ -739,17 +806,23 @@ class AsmSimulator {
                     break;
                 }
                 case 'call': {
-                    const target = operands[0].trim().replace(/\bshort\s+/i, '').toLowerCase();
-                    const labelIdx = this.labels[target];
-                    if (labelIdx === undefined) { desc = `Unknown label: ${target}`; break; }
-                    // Push return address (next instruction index)
+                    const raw = operands[0].trim().replace(/\bshort\s+/i, '');
+                    const target = raw.toLowerCase();
+                    let labelIdx = this.labels[target];
+                    if (labelIdx === undefined) {
+                        // indirect call: call reg | call [mem] -> code address
+                        const addr = this._resolveIndirectTarget(raw);
+                        if (addr === null) { desc = `call: cannot resolve target "${raw}"`; return this._mkErr(desc); }
+                        labelIdx = this._addrToLine(addr);
+                        if (labelIdx === null) { desc = `call: target 0x${(addr >>> 0).toString(16)} is not a valid code address`; return this._mkErr(desc); }
+                    }
                     const retAddr = this.pc + 1;
                     const esp = this.getReg('esp') - 4;
                     this.setReg('esp', esp);
                     this.setMem(esp, retAddr, 4); // store line index as "address"
                     this.callStack.push(retAddr);
                     this.jumpTarget = labelIdx;
-                    desc = `call ${target} (return to line ${retAddr})`;
+                    desc = `call ${raw} (return to line ${retAddr})`;
                     break;
                 }
                 case 'ret': case 'retn': {
@@ -772,11 +845,21 @@ class AsmSimulator {
                 }
                 // === Branch instructions ===
                 case 'jmp': {
-                    const target = operands[0].trim().replace(/\bshort\s+/i, '').toLowerCase();
+                    const raw = operands[0].trim().replace(/\bshort\s+/i, '');
+                    const target = raw.toLowerCase();
                     const idx = this.labels[target];
-                    if (idx === undefined) { desc = `Unknown label: ${target}`; break; }
-                    this.jumpTarget = idx;
-                    desc = `jmp ${target}`;
+                    if (idx !== undefined) {            // direct: jmp label
+                        this.jumpTarget = idx;
+                        desc = `jmp ${target}`;
+                        break;
+                    }
+                    // indirect: jmp reg | jmp [mem] | jmp addr  -> target is a code address
+                    const addr = this._resolveIndirectTarget(raw);
+                    if (addr === null) { desc = `jmp: cannot resolve target "${raw}"`; return this._mkErr(desc); }
+                    const line = this._addrToLine(addr);
+                    if (line === null) { desc = `jmp: target 0x${(addr >>> 0).toString(16)} is not a valid code address`; return this._mkErr(desc); }
+                    this.jumpTarget = line;
+                    desc = `jmp ${raw} -> 0x${(addr >>> 0).toString(16)} (line ${line})`;
                     break;
                 }
                 case 'je': case 'jz': {
@@ -967,6 +1050,26 @@ class AsmSimulator {
         this.flags.SF = (wrapped >> (bits - 1)) & 1;
     }
 
+    _mkErr(description) { return { description, changedRegs: [], error: true }; }
+
+    // Resolve an indirect jmp/call target operand to a code address value:
+    //   register      -> its value
+    //   [mem]         -> 4-byte read at the effective address
+    //   addr literal  -> the number itself
+    //   label name    -> its synthetic address (rare for indirect, but valid)
+    _resolveIndirectTarget(raw) {
+        const t = raw.trim();
+        if (this.isReg(t)) return this.getReg(t) >>> 0;
+        if (this.isMemOperand(t)) {
+            const m = this._parseMemOperand(t);
+            if (!m) return null;
+            return this.getMem(m.addr, m.size || 4) >>> 0;
+        }
+        if (this.labelAddr && this.labelAddr[t.toLowerCase()] !== undefined) return this.labelAddr[t.toLowerCase()] >>> 0;
+        const v = this.parseVal(t);
+        return v === null ? null : (v >>> 0);
+    }
+
     _evalLeaExpr(expr) {
         let total = 0;
         // Resolve IDA variable names before tokenizing:
@@ -983,6 +1086,10 @@ class AsmSimulator {
                 total += this.getReg(scaleMatch[1]) * parseInt(scaleMatch[2]);
             } else if (this.isReg(t)) {
                 total += this.getReg(t);
+            } else if (this.labelAddr && this.labelAddr[t.toLowerCase()] !== undefined) {
+                // A bare label name resolves to its synthetic address. This makes
+                // jump tables ([table + eax*4]) and `lea eax, [label]` work.
+                total += this.labelAddr[t.toLowerCase()];
             } else {
                 // Parse as a number. Order matters so the lab's existing
                 // decimal convention is preserved while still correctly

@@ -227,6 +227,9 @@
                                         <option value="xor-decode">XOR string decode</option>
                                         <option value="keygen">Keygen: reverse the check</option>
                                     </optgroup>
+                                    <optgroup label="Control Flow">
+                                        <option value="jump-table">Jump table (switch dispatch)</option>
+                                    </optgroup>
                                 </select>
                                 <button id="sandbox-load" class="sim-btn">Load</button>
                             </div>
@@ -2421,6 +2424,7 @@ loop_done:</pre>
                 <div class="important-note">
                     In IDA, you'll see a <strong>byte array</strong> (the translation table) that maps input values to case indices, and a <strong>pointer array</strong> (the jump table) with the actual case addresses. The input value is used as an index into the byte array, and the result indexes into the jump table.
                 </div>
+                <p><strong>Step through a real one:</strong> open the <a href="#sandbox">Sandbox Simulator</a> and load <strong>Control Flow &rarr; Jump table (switch dispatch)</strong>. It builds a four-entry table of code addresses with <code>dd</code> and dispatches with a single <code>jmp [jtable + eax*4]</code> &mdash; change the switch value and watch the indirect jump land on a different case each time.</p>
             </div>
 
             <div class="concept-box">

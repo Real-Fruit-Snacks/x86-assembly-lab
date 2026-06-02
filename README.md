@@ -72,6 +72,8 @@ SUPPORTED INSTRUCTIONS (32-bit engine)
   PUSH, POP, CALL, RET, LEAVE, NOP
   JMP, JE, JNE, JB, JBE, JA, JAE, JL, JLE, JG, JGE, JS, JNS, JO, JNO
   (+ all aliases: JZ, JNZ, JNA, JNBE, SAL, RETN, etc.)
+  Indirect JMP/CALL: jmp eax · jmp [jtable + eax*4] · call [vtable+8]
+  Data directives:   dd / dw / db / dq (build jump tables and data blocks)
 
 SUPPORTED INSTRUCTIONS (64-bit engine)
 
@@ -95,6 +97,8 @@ INPUT FORMATS
   IDA args        mov eax, [ebp+arg_0]
   Memory          mov dword ptr [ebp-8], 45
   Segment prefix  mov edx, dword ptr ss:[ebp-4]
+  Label address   lea eax, [case0]     (label resolves to a code address)
+  Jump table      jtable: dd case0, case1, case2   +   jmp [jtable + eax*4]
 
 REGISTER QUIZ
 

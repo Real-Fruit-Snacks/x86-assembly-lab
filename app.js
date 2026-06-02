@@ -794,6 +794,37 @@ done:
 nop
 ; To derive 42 without peeking: undo each step in reverse order.
 ; target 0x5A  ->  XOR 0xD4 = 0x8E (142)  ->  -16 = 126  ->  /3 = 42`,
+
+    'jump-table': `; Jump table - how a compiler turns switch() into O(1) dispatch
+; switch (eax) { case 0..3 -> set ebx; default -> ebx = -1 }
+; Instead of a chain of CMP/JE, it does ONE indirect jump through
+; a table of code addresses, indexed by the switch value.
+; Change the 2 below to 0, 1, 3, or 9 and re-run to see each path.
+    mov eax, 2                   ; the switch value
+    cmp eax, 3                   ; range check first...
+    ja default                   ; ...out of range -> default
+    jmp [jtable + eax*4]         ; indirect jump: load jtable[eax] and go there
+jtable:                          ; a table of CODE ADDRESSES (4 bytes each)
+    dd case0
+    dd case1
+    dd case2
+    dd case3
+case0:
+    mov ebx, 100
+    jmp done
+case1:
+    mov ebx, 111
+    jmp done
+case2:
+    mov ebx, 222
+    jmp done
+case3:
+    mov ebx, 333
+    jmp done
+default:
+    mov ebx, -1
+done:
+    nop                          ; EBX now holds the selected case's value`,
 };
 
 function sandboxLoad() {
