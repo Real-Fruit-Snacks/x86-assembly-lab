@@ -934,6 +934,11 @@ Examples:
             <p>Flags are single-bit values the CPU sets automatically after most operations. Conditional jumps read them.</p>
 
             <div class="concept-box">
+                <h3>One Register Holds Them All: EFLAGS</h3>
+                <p>The flags aren't scattered around the CPU &mdash; they're individual bits packed into a single special register called <strong>EFLAGS</strong> (32-bit). In 64-bit code it's <strong>RFLAGS</strong>, and the original 16-bit form was <strong>FLAGS</strong> &mdash; the same E&rarr;R naming you've seen with the general-purpose registers. You rarely read or write EFLAGS as a whole; instead, arithmetic and logic instructions update specific bits, and conditional jumps test them. When a disassembler shows the flags pane, that's EFLAGS broken out bit by bit. Each flag below is just one position in that register.</p>
+            </div>
+
+            <div class="concept-box">
                 <h3>The Four Key Flags</h3>
                 <p>These are the flags you'll use 99% of the time:</p>
                 <table class="ref-table">
@@ -1102,9 +1107,11 @@ cmp eax, ecx</pre>
                     <tr><td>BYTE</td><td>Byte</td><td>1 byte (8 bits)</td><td>AL, BL, CL, DL</td><td><code>byte ptr</code></td></tr>
                     <tr><td>WORD</td><td>Word</td><td>2 bytes (16 bits)</td><td>AX, BX, CX, DX</td><td><code>word ptr</code></td></tr>
                     <tr><td>DWORD</td><td>Double Word</td><td>4 bytes (32 bits)</td><td>EAX, EBX, ECX, EDX</td><td><code>dword ptr</code></td></tr>
-                    <tr><td>QWORD</td><td>Quad Word</td><td>8 bytes (64 bits)</td><td>EDX:EAX (two registers as a pair)</td><td><code>qword ptr</code></td></tr>
+                    <tr><td>QWORD</td><td>Quad Word</td><td>8 bytes (64 bits)</td><td>EDX:EAX (two registers as a pair), or RAX in x64</td><td><code>qword ptr</code></td></tr>
+                    <tr><td>OWORD</td><td>Octa Word (Long Word)</td><td>16 bytes (128 bits)</td><td>XMM registers (SSE)</td><td><code>oword ptr</code></td></tr>
                 </table>
                 <p>The <code>ptr</code> in <code>dword ptr</code> stands for "pointer" and tells the assembler how many bytes to read or write. When you see <code>dword ptr [ebp-8]</code>, it means: access 4 bytes of memory starting at address <code>ebp-8</code>.</p>
+                <p>You'll meet BYTE through QWORD constantly in general-purpose code. <strong>OWORD</strong> (16 bytes, sometimes called a "long word" or "octa word") shows up with the XMM/SSE registers used for floating-point and vector operations &mdash; worth recognizing in a disassembly listing even though the integer instructions in this lab work at QWORD and below.</p>
             </div>
 
             <div class="concept-box">
