@@ -5,7 +5,7 @@
 </picture>
 
 > [!IMPORTANT]
-> **Interactive x86 & x86-64 assembly simulator and learning lab.** A complete browser-based environment for learning assembly from scratch — a step-through 32-bit simulator, an interactive 64-bit playground, a visual stack playground with nested frame tracking, a register quiz game, 27 tutorial sections, and 7 interactive tools. No backend, no build step, no dependencies.
+> **Interactive x86 & x86-64 assembly simulator and learning lab.** A complete browser-based environment for learning assembly from scratch — a step-through 32-bit simulator, an interactive 64-bit playground, a visual stack playground with nested frame tracking, a register quiz game, 28 tutorial sections, and 7 interactive tools. No backend, no build step, no dependencies.
 
 > *Reading assembly is easier when you can step it. Felt fitting for a single-file lab that runs the engine in your browser tab.*
 
@@ -17,7 +17,7 @@ A self-contained assembly classroom. Paste any x86 listing into the sandbox and 
 
 A separate **64-bit engine** powers an interactive x64 Playground: drive a true `RAX`–`R15` machine with action buttons (push/pop, call/return, prologue/alloc/leave, and free-form execute), with a live call-chain, undo, and scenarios. Because it is genuinely 64-bit (built on `BigInt`), the real rules hold — a 32-bit write like `mov eax, 1` zeroes the upper half of `RAX`.
 
-The stack playground has four modes (Explore, Step-Through, Puzzle, Errors) and tracks nested frames with color-coded borders and a `main → caller → current` call-chain overview. A register quiz game generates random problems across three difficulty levels with scoring, streaks, and best-record memory. Twenty-seven tutorial sections cover fundamentals through advanced topics — calling conventions, structs, floating point, dynamic memory, reading real disassembly, XOR deobfuscation, a keygen-reversing capstone, and x64 differences — each with mini-simulators and practice challenges.
+The stack playground has four modes (Explore, Step-Through, Puzzle, Errors) and tracks nested frames with color-coded borders and a `main → caller → current` call-chain overview. A register quiz game generates random problems across three difficulty levels with scoring, streaks, and best-record memory. Twenty-eight tutorial sections cover fundamentals through advanced topics — calling conventions, structs, floating point, dynamic memory, reading real disassembly, XOR deobfuscation, a keygen-reversing capstone, buffer overflows, and x64 differences — each with mini-simulators and practice challenges.
 
 ▶ **[Live demo](https://Real-Fruit-Snacks.github.io/x86-assembly-lab/)**
 
@@ -30,7 +30,7 @@ The stack playground has four modes (Explore, Step-Through, Puzzle, Errors) and 
 | 32-BIT SIM | EAX–EDX with sub-registers (AL/AH/AX) · ESI · EDI · EBP · ESP · ZF/CF/SF/OF |
 | 64-BIT SIM | RAX–RDX/RSI/RDI/RBP/RSP + R8–R15, with 32/16/8-bit sub-registers · BigInt-exact · 32-bit-write-zeroes-upper-half |
 | INSTRUCTIONS | MOV(SX/ZX), arithmetic, bitwise, shifts/rotates, MUL/IMUL/DIV/IDIV, CBW/CWD/CWDE/CDQ, stack/branch/call/ret |
-| TUTORIALS  | **27 sections** · 33 interactive mini-simulators · before/after snapshots  |
+| TUTORIALS  | **28 sections** · 39 interactive mini-simulators · before/after snapshots  |
 | TOOLS      | **7 interactive** · instruction reference · number / bitwise / endianness · ASCII · flags · address calc |
 | STACK MODES | Explore · Step-Through · Puzzle · Errors                                   |
 | x64 PLAYGROUND | Button-driven · 5 scenarios · live call-chain · undo · free-form execute |
@@ -137,7 +137,7 @@ INTERACTIVE TOOLS
 
 ```
 .
-  index.html            Single-page app with 39 sections
+  index.html            Single-page app with 40 sections
   style.css             Catppuccin Mocha theme + custom scrollbars
   simulator.js          32-bit x86 engine: registers, flags, memory, stack, branches
   app.js                32-bit UI: sandbox, stack playground, quiz, mini-sims, tools

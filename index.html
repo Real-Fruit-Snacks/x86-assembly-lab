@@ -43,6 +43,7 @@
             <li class="nav-group-label">Advanced</li>
             <li><a href="#learn-extensions" class="nav-link" data-section="learn-extensions">Extension Instructions</a></li>
             <li><a href="#learn-pointers" class="nav-link" data-section="learn-pointers">Pointers</a></li>
+            <li><a href="#learn-bufferoverflow" class="nav-link" data-section="learn-bufferoverflow">Buffer Overflows</a></li>
             <li><a href="#learn-variables" class="nav-link" data-section="learn-variables">Variables &amp; Scope</a></li>
             <li><a href="#learn-conventions" class="nav-link" data-section="learn-conventions">Calling Conventions</a></li>
             <li><a href="#learn-arrays" class="nav-link" data-section="learn-arrays">Arrays</a></li>
@@ -121,7 +122,7 @@
                 </div>
                 <div class="feature-card" onclick="navigate('learn-extensions')">
                     <h3>Advanced Topics</h3>
-                    <p>10 sections: Extension instructions, pointers, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and miscellaneous instructions. (x64 differences now lives in the x86-64 group above.)</p>
+                    <p>11 sections: Extension instructions, pointers, buffer overflows, variables and scope, calling conventions, arrays, strings, structures, dynamic memory, floating point, and miscellaneous instructions. (x64 differences now lives in the x86-64 group above.)</p>
                 </div>
             </div>
 
@@ -3031,6 +3032,87 @@ add ebx, [ebp+12]
 mov [eax], ebx</pre>
                 <p><strong>Hint:</strong> EAX is loaded from <code>[ebp+8]</code>, then used inside brackets as <code>[eax]</code>. That means <code>[ebp+8]</code> is a pointer. <code>[ebp+12]</code> is used directly in ADD &mdash; its value is added, not dereferenced &mdash; so it's a plain integer value.</p>
                 <p><strong>In plain English:</strong> This function takes a pointer to an integer and a plain integer. It reads the value at the pointer, adds the second argument to it, and writes the result back through the pointer. In C, this would be something like: <code>*arg1 = *arg1 + arg2;</code></p>
+            </div>
+        </section>
+
+        <!-- Learn: Buffer Overflows -->
+        <section id="learn-bufferoverflow" class="section">
+            <h1>Buffer Overflows <span style="font-size:0.8rem;color:var(--text-dim);font-weight:normal">&mdash; how a stack write becomes control of execution</span></h1>
+            <p>This is where everything you've learned about the stack pays off. A buffer overflow is the classic memory-corruption bug: a program writes more data into a fixed-size buffer than it can hold, and the excess spills into whatever sits next to it in memory. When that buffer lives on the stack, "next to it" includes the saved frame pointer and the <strong>saved return address</strong> &mdash; and overwriting the return address means controlling where the function goes when it returns. This page explains the mechanism (so you recognize it in a disassembly), demonstrates it safely on the engine, and covers the modern defenses that make the 1996-era version no longer just work.</p>
+
+            <div class="concept-box" style="border-left-color: var(--mauve);">
+                <h3>Historical Note: "Smashing the Stack for Fun and Profit"</h3>
+                <p>The technique was popularized by Aleph One's 1996 <em>Phrack</em> 49 article of that name &mdash; one of the most influential security papers ever written. The concepts below follow its framing. Everything here is for <strong>understanding and defense</strong>: recognizing the bug class when you reverse-engineer or audit code, and understanding why modern systems are hardened against it. The original exploit targeted a 1996 Linux kernel and does not work on a current machine.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Setup: A Buffer Lives Below the Return Address</h3>
+                <p>Recall the stack frame from <a href="#learn-stack">Stack &amp; Functions</a>. When a function runs, its local buffer sits at a <em>lower</em> address than the saved EBP and the return address. But array writes move <em>upward</em> (toward higher addresses) as the index grows. So a write that runs off the end of the buffer marches straight toward the saved EBP and the return address:</p>
+                <pre class="code-block">lower addresses                                   higher addresses
+       (top of stack)                            (bottom of stack)
+
+  [ char buffer[8] ][ saved EBP ][ return addr ][ args... ]
+    ebp-8     ebp-4    ebp+0        ebp+4         ebp+8
+    \___________________/    \________/    \__________/
+       the local buffer       4 bytes        4 bytes
+                              (SFP)           (RET)
+
+  writes grow this way  ------------------------------>
+                        and run straight into SFP, then RET</pre>
+                <p>A 5-byte declared buffer is rounded up to 8 bytes (two words) by the compiler &mdash; alignment matters, and is itself a clue when reading frame layouts. Write 8 bytes and you've filled the buffer. Write 12 and you've reached the return address.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Mechanism: Watch a Write March Into the Return Address</h3>
+                <p>This runs on the 32-bit engine. We set up a frame, fill an 8-byte buffer with <code>'A'</code> bytes (<code>0x41414141</code> &mdash; safe, it stays in bounds), then keep writing: the next word lands on the saved EBP (<code>'B'</code> = <code>0x42424242</code>), and the word after that overwrites the saved return address (<code>'C'</code> = <code>0x43434343</code>). Step it and watch the return-address slot change &mdash; that final write is the hijack.</p>
+                <div class="mini-sim" data-code="mov ebp, 0x0028FF60&#10;mov dword ptr [ebp-8], 0x41414141&#10;mov dword ptr [ebp-4], 0x41414141&#10;mov dword ptr [ebp], 0x42424242&#10;mov dword ptr [ebp+4], 0x43434343&#10;mov eax, [ebp]&#10;mov ebx, [ebp+4]">
+                    <div class="mini-sim-header">
+                        <span>Step it: the buffer fills (safe), then the writes spill into saved EBP and the return address</span>
+                        <button class="sim-btn mini-step">Step</button>
+                        <button class="sim-btn danger mini-reset">Reset</button>
+                    </div>
+                    <div class="mini-sim-body"></div>
+                </div>
+                <p>After the last two writes, EAX holds the clobbered saved-EBP value and EBX holds the clobbered return address. In a real program, when the function executed its epilogue and <code>ret</code>, it would pop <code>0x43434343</code> into EIP and jump there. Fill the buffer with the address of code <em>you</em> control instead of <code>'C'</code> bytes, and you've redirected execution.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>Why 0x41414141? The Analyst's Fingerprint</h3>
+                <p>The single most recognizable sign of a buffer overflow is a crash with the instruction pointer at <strong><code>0x41414141</code></strong>. That's four ASCII <code>'A'</code> characters (<code>0x41</code> each) &mdash; the value you get when a test input of <code>"AAAA..."</code> overflows into the return address and the function tries to <code>ret</code> into it. <code>0x41414141</code> isn't a valid code address, so the CPU faults. When you see that EIP value in a crash dump or debugger, you are almost certainly looking at a stack-based overflow, and the number of <code>A</code>s before the crash tells you the offset to the return address.</p>
+                <div class="important-note">This is the recognition skill: <code>0x41414141</code> in EIP (or <code>0x42424242</code>, <code>0x43434343</code> if the researcher used patterned input to measure the offset) means a return address was overwritten with attacker-controlled data.</div>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Classic Payload: NOP Sled + Shellcode + Address</h3>
+                <p>To turn the overwrite into useful code execution, the classic exploit places three things in the oversized input:</p>
+                <table class="data-table">
+                    <tr><th>Part</th><th>Purpose</th></tr>
+                    <tr><td><strong>NOP sled</strong></td><td>A run of <code>0x90</code> (NOP) bytes. Since the exact address of the payload is hard to guess, landing <em>anywhere</em> in the sled is enough &mdash; execution slides down the NOPs into the real code. This widens the target.</td></tr>
+                    <tr><td><strong>Shellcode</strong></td><td>A small position-independent stub that does something useful &mdash; classically <code>execve("/bin/sh")</code> via <code>int 0x80</code> on Linux. It must contain no null bytes, since string functions stop copying at a null.</td></tr>
+                    <tr><td><strong>Return address</strong></td><td>Repeated copies of an address pointing back into the sled, positioned to land on the saved return-address slot.</td></tr>
+                </table>
+                <p>The "no null bytes" constraint is why exploit shellcode uses tricks like <code>xor eax, eax</code> (to make zero without a literal <code>0x00</code>) instead of <code>mov eax, 0</code>. You saw that idiom in <a href="#learn-idioms">Common Idioms</a> &mdash; here's where it matters in practice.</p>
+                <div class="important-note">The engine does not execute shellcode, syscalls (<code>int 0x80</code>), or spawn processes &mdash; this section teaches the <em>mechanism and its recognition</em>, not a working exploit. The historical shellcode targeted a 1996 kernel and will not run on a modern system.</div>
+            </div>
+
+            <div class="concept-box" style="border-left-color: var(--green);">
+                <h3>Why It No Longer Just Works: Modern Defenses</h3>
+                <p>The 1996 attack assumed a predictable, executable, unguarded stack. Every assumption has since been broken &mdash; recognizing these defenses (and their absence) is core to modern analysis:</p>
+                <table class="data-table">
+                    <tr><th>Defense</th><th>What it does</th></tr>
+                    <tr><td><strong>Stack canaries</strong> (/GS, StackGuard)</td><td>The compiler places a random "canary" value between the local buffers and the saved return address. Before returning, the function checks the canary is intact; an overflow that reaches the return address must have overwritten the canary first, which is detected and aborts the program.</td></tr>
+                    <tr><td><strong>NX / DEP</strong> (No-eXecute)</td><td>The stack is marked non-executable. Even if you overwrite the return address to point at your shellcode on the stack, the CPU refuses to execute data there. This is what killed the plain "shellcode on the stack" technique and gave rise to <strong>ROP</strong> (return-oriented programming), which reuses existing executable code instead.</td></tr>
+                    <tr><td><strong>ASLR</strong> (Address Space Layout Randomization)</td><td>The stack, heap, and libraries load at randomized addresses each run, so you can't hardcode the return address &mdash; the predictable "the stack always starts here" assumption from the paper is gone.</td></tr>
+                    <tr><td><strong>Safe functions &amp; bounds checking</strong></td><td>The root cause is unbounded copies. <code>strncpy</code>, <code>snprintf</code>, and <code>fgets</code> take a size limit; <code>strcpy</code>, <code>sprintf</code>, <code>gets</code> do not. Finding the unbounded ones is the first thing to grep for.</td></tr>
+                </table>
+                <p>Modern exploitation chains techniques to defeat these (info leaks to beat ASLR, ROP to beat NX, and so on), which is well beyond this lab &mdash; but the <em>foundation</em> is exactly the stack-frame overwrite you stepped through above.</p>
+            </div>
+
+            <div class="concept-box">
+                <h3>The Vulnerable Functions to Recognize</h3>
+                <p>When auditing or reversing, these C library functions copy without bounds checking and are the classic overflow sources. Seeing one whose size comes from user input is a red flag:</p>
+                <p style="font-family:var(--font-mono);font-size:0.9rem;color:var(--red)">strcpy() &middot; strcat() &middot; sprintf() &middot; vsprintf() &middot; gets() &middot; scanf("%s") &middot; the getc()/fgetc()/getchar() read-until-delimiter loop</p>
+                <p>Their bounded counterparts &mdash; <code>strncpy</code>, <code>strncat</code>, <code>snprintf</code>, <code>fgets</code> &mdash; take a maximum length and are the fix. In a disassembly, a <code>call strcpy</code> with a stack-buffer destination and an attacker-influenced source is the pattern to flag.</p>
             </div>
         </section>
 
