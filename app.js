@@ -246,7 +246,7 @@ function buildSearchIndex() {
         // Classify by section ID
         let type = 'page';
         if (section.startsWith('learn-')) type = 'tutorial';
-        else if (['sandbox','quiz','stack-playground'].includes(section)) type = 'tool';
+        else if (['sandbox','sandbox64','quiz','stack-playground'].includes(section)) type = 'tool';
         else if (['reference','number-converter','bitwise-calc','endianness','ascii-table','flags-calc','address-calc'].includes(section)) type = 'tool';
         items.push({ type, name, section, desc: '' });
     });
