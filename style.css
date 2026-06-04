@@ -123,6 +123,9 @@ li { margin-bottom: 0.25rem; }
 }
 #sidebar.collapsed { transform: translateX(-100%); }
 
+/* Mobile-only overlay backdrop; hidden on desktop */
+#sidebar-backdrop { display: none; }
+
 .sidebar-header { padding: 1.1rem 1rem 0.5rem; border-bottom: 1px solid var(--border); }
 .sidebar-header h2 { font-size: 1.05rem; color: var(--accent); }
 .sidebar-header .subtitle { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
@@ -2072,10 +2075,44 @@ p { margin-bottom: 0.7rem; }
     .sp-controls-col { min-width: 0; }
 }
 @media (max-width: 768px) {
-    #sidebar { transform: translateX(-100%); }
+    #sidebar {
+        transform: translateX(-100%);
+        width: 82vw;
+        max-width: 300px;
+        min-width: 0;
+        box-shadow: 2px 0 16px rgba(0, 0, 0, 0.45);
+    }
     #sidebar.open { transform: translateX(0); }
-    #sidebar-toggle { left: 0.6rem; }
-    #content { margin-left: 0; padding: 1rem; }
+
+    /* Dim backdrop shown behind the open mobile menu */
+    #sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 90;
+    }
+    body.sidebar-open #sidebar-backdrop { display: block; }
+    body.sidebar-open { overflow: hidden; }
+
+    /* Floating hamburger / close button, always visible and tappable */
+    #sidebar-toggle {
+        left: 0.6rem;
+        top: 0.6rem;
+        opacity: 1;
+        font-size: 1.3rem;
+        line-height: 1;
+        padding: 0.4rem 0.6rem;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        z-index: 250;
+    }
+    body.sidebar-open #sidebar-toggle {
+        left: auto;
+        right: 0.6rem;
+    }
+
+    #content { margin-left: 0; max-width: 100%; padding: 1rem; padding-top: 3.4rem; }
     .endian-demo { grid-template-columns: 1fr; }
     .sp-mode-tabs { flex-wrap: wrap; }
     .sp-action-row { flex-wrap: wrap; }
